@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   X, 
@@ -27,18 +27,28 @@ export const JobDetailModal: React.FC<Props> = ({ job, onClose }) => {
 
   if (!job) return null;
 
+  const [copied, setCopied] = useState(false);
   const isSaved = savedJobIds.includes(job.id);
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (navigator.share) {
-      navigator.share({
-        title: `${job.title} at ${job.company} - DubaiStart`,
-        text: `فرصة عمل في دبي: ${job.title} لدى ${job.company}`,
-        url: window.location.href
-      }).catch(() => {});
+      try {
+        await navigator.share({
+          title: `${job.title} at ${job.company} - DubaiStart`,
+          text: `فرصة عمل في دبي: ${job.title} لدى ${job.company}`,
+          url: window.location.href
+        });
+      } catch {
+        // user cancelled share
+      }
     } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('تم نسخ رابط الإعلان!');
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        // clipboard unavailable
+      }
     }
   };
 
@@ -188,10 +198,14 @@ export const JobDetailModal: React.FC<Props> = ({ job, onClose }) => {
 
             <button
               onClick={handleShare}
-              className="p-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 hover:text-white transition-colors text-xs font-semibold flex items-center gap-1"
+              className={`p-2.5 rounded-xl border transition-colors text-xs font-semibold flex items-center gap-1 ${
+                copied
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+              }`}
             >
               <Share2 className="w-4 h-4" />
-              <span>مشاركة</span>
+              <span>{copied ? 'تم النسخ ✓' : 'مشاركة'}</span>
             </button>
 
             <button

@@ -4,6 +4,7 @@ import { INITIAL_JOBS } from '../data/jobs';
 import { INITIAL_HOUSING } from '../data/housing';
 import { INITIAL_RECRUITMENT_OFFICES } from '../data/recruitment';
 import { TRANSLATIONS } from '../data/translations';
+import { safeGetItem, safeSetItem, safeRemoveItem, safeParseJSON } from '../utils/storage';
 
 export type NavTab = 
   | 'home' 
@@ -65,7 +66,7 @@ interface AppContextType {
   updateJob: (id: string, updates: Partial<Job>) => void;
   deleteJob: (id: string) => void;
   
-  addHousing: (h: Omit<HousingListing, 'id'>) => void;
+  addHousing: (h: Omit<HousingListing, 'id' | 'datePosted'> & { datePosted?: string }) => void;
   updateHousing: (id: string, updates: Partial<HousingListing>) => void;
   deleteHousing: (id: string) => void;
 
@@ -83,7 +84,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem('dubai_start_lang');
+    const saved = safeGetItem('dubai_start_lang');
     return (saved as Language) || 'ar';
   });
 
@@ -91,23 +92,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [searchQuery, setSearchQuery] = useState('');
   
   const [jobs, setJobs] = useState<Job[]>(() => {
-    const saved = localStorage.getItem('dubai_start_jobs');
-    return saved ? JSON.parse(saved) : INITIAL_JOBS;
+    const saved = safeGetItem('dubai_start_jobs');
+    return safeParseJSON(saved, INITIAL_JOBS);
   });
 
   const [housing, setHousing] = useState<HousingListing[]>(() => {
-    const saved = localStorage.getItem('dubai_start_housing');
-    return saved ? JSON.parse(saved) : INITIAL_HOUSING;
+    const saved = safeGetItem('dubai_start_housing');
+    return safeParseJSON(saved, INITIAL_HOUSING);
   });
 
   const [recruitmentOffices, setRecruitmentOffices] = useState<RecruitmentOffice[]>(() => {
-    const saved = localStorage.getItem('dubai_start_offices');
-    return saved ? JSON.parse(saved) : INITIAL_RECRUITMENT_OFFICES;
+    const saved = safeGetItem('dubai_start_offices');
+    return safeParseJSON(saved, INITIAL_RECRUITMENT_OFFICES);
   });
 
   const [reports, setReports] = useState<UserReport[]>(() => {
-    const saved = localStorage.getItem('dubai_start_reports');
-    return saved ? JSON.parse(saved) : [
+    const defaultReports: UserReport[] = [
       {
         id: 'rep-1',
         targetType: 'scam_whatsapp',
@@ -120,19 +120,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: 'reviewed'
       }
     ];
+    const saved = safeGetItem('dubai_start_reports');
+    return safeParseJSON(saved, defaultReports);
   });
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedHousing, setSelectedHousing] = useState<HousingListing | null>(null);
   
   const [savedJobIds, setSavedJobIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('dubai_start_saved_jobs');
-    return saved ? JSON.parse(saved) : [];
+    const saved = safeGetItem('dubai_start_saved_jobs');
+    return safeParseJSON(saved, []);
   });
 
   const [savedHousingIds, setSavedHousingIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('dubai_start_saved_housing');
-    return saved ? JSON.parse(saved) : [];
+    const saved = safeGetItem('dubai_start_saved_housing');
+    return safeParseJSON(saved, []);
   });
 
   // Report Modal state
@@ -142,37 +144,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Sync Language and Direction with DOM
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('dubai_start_lang', lang);
+    safeSetItem('dubai_start_lang', lang);
   };
 
   useEffect(() => {
-    document.documentElement.lang = language;
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    try {
+      document.documentElement.lang = language;
+      document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    } catch (e) {
+      console.warn(e);
+    }
   }, [language]);
 
   // Persist Data Changes
   useEffect(() => {
-    localStorage.setItem('dubai_start_jobs', JSON.stringify(jobs));
+    safeSetItem('dubai_start_jobs', JSON.stringify(jobs));
   }, [jobs]);
 
   useEffect(() => {
-    localStorage.setItem('dubai_start_housing', JSON.stringify(housing));
+    safeSetItem('dubai_start_housing', JSON.stringify(housing));
   }, [housing]);
 
   useEffect(() => {
-    localStorage.setItem('dubai_start_offices', JSON.stringify(recruitmentOffices));
+    safeSetItem('dubai_start_offices', JSON.stringify(recruitmentOffices));
   }, [recruitmentOffices]);
 
   useEffect(() => {
-    localStorage.setItem('dubai_start_reports', JSON.stringify(reports));
+    safeSetItem('dubai_start_reports', JSON.stringify(reports));
   }, [reports]);
 
   useEffect(() => {
-    localStorage.setItem('dubai_start_saved_jobs', JSON.stringify(savedJobIds));
+    safeSetItem('dubai_start_saved_jobs', JSON.stringify(savedJobIds));
   }, [savedJobIds]);
 
   useEffect(() => {
-    localStorage.setItem('dubai_start_saved_housing', JSON.stringify(savedHousingIds));
+    safeSetItem('dubai_start_saved_housing', JSON.stringify(savedHousingIds));
   }, [savedHousingIds]);
 
   // Tab management & window scroll reset
@@ -301,10 +307,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setJobs(INITIAL_JOBS);
     setHousing(INITIAL_HOUSING);
     setRecruitmentOffices(INITIAL_RECRUITMENT_OFFICES);
-    localStorage.removeItem('dubai_start_jobs');
-    localStorage.removeItem('dubai_start_housing');
-    localStorage.removeItem('dubai_start_offices');
-    localStorage.removeItem('dubai_start_reports');
+    safeRemoveItem('dubai_start_jobs');
+    safeRemoveItem('dubai_start_housing');
+    safeRemoveItem('dubai_start_offices');
+    safeRemoveItem('dubai_start_reports');
   };
 
   const t = useMemo(() => TRANSLATIONS[language] || TRANSLATIONS.ar, [language]);

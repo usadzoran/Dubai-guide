@@ -16,16 +16,13 @@ import {
   Share2
 } from 'lucide-react';
 import { STARTER_PLAN_DAYS } from '../../data/starterPlan';
+import { safeGetItem, safeSetItem, safeParseJSON } from '../../utils/storage';
 
 export const StarterPlanView: React.FC = () => {
   // Local state for interactive checkboxes, stored in localStorage
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('dubaistart_completed_tasks');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+    const saved = safeGetItem('dubaistart_completed_tasks');
+    return safeParseJSON(saved, []);
   });
 
   // Budget Calculator state
@@ -38,9 +35,7 @@ export const StarterPlanView: React.FC = () => {
   const totalCalculated = housingCost + transportCost + foodCost + simCost + bufferCost;
 
   useEffect(() => {
-    try {
-      localStorage.setItem('dubaistart_completed_tasks', JSON.stringify(completedTaskIds));
-    } catch {}
+    safeSetItem('dubaistart_completed_tasks', JSON.stringify(completedTaskIds));
   }, [completedTaskIds]);
 
   const toggleTask = (taskId: string) => {
@@ -55,9 +50,7 @@ export const StarterPlanView: React.FC = () => {
   const progressPercentage = Math.round((completedCount / (allTasks.length || 1)) * 100);
 
   const resetAllProgress = () => {
-    if (window.confirm('هل تريد إعادة تعيين كافة المهام المكتملة؟')) {
-      setCompletedTaskIds([]);
-    }
+    setCompletedTaskIds([]);
   };
 
   return (

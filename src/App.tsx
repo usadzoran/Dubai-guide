@@ -17,6 +17,7 @@ import { AlgerianGuideView } from './components/guide/AlgerianGuideView';
 import { MoreView } from './components/more/MoreView';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ReportModal } from './components/common/ReportModal';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const AppContent: React.FC = () => {
   const { activeTab } = useApp();
@@ -62,8 +63,10 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }

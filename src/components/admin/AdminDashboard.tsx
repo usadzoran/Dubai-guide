@@ -56,6 +56,12 @@ export const AdminDashboard: React.FC = () => {
   const [newHouseMetro, setNewHouseMetro] = useState('Union Metro Station');
   const [newHouseStatus, setNewHouseStatus] = useState<'verified' | 'check_before_payment' | 'suspicious'>('verified');
   const [newHousePhone, setNewHousePhone] = useState('+971501234567');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showNotification = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const handleAddJob = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +87,7 @@ export const AdminDashboard: React.FC = () => {
     setNewJobCompany('');
     setNewJobDesc('');
     setShowJobModal(false);
-    alert('تمت إضافة الوظيفة بنجاح!');
+    showNotification('تمت إضافة الوظيفة بنجاح!');
   };
 
   const handleAddHousing = (e: React.FormEvent) => {
@@ -110,7 +116,7 @@ export const AdminDashboard: React.FC = () => {
 
     setNewHouseTitle('');
     setShowHousingModal(false);
-    alert('تمت إضافة إعلان السكن بنجاح!');
+    showNotification('تمت إضافة إعلان السكن بنجاح!');
   };
 
   return (
@@ -134,9 +140,8 @@ export const AdminDashboard: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              if (window.confirm('هل أنت متأكد من إعادة ضبط البيانات إلى الحالة التجريبية الأصلية؟')) {
-                resetToDefaultData();
-              }
+              resetToDefaultData();
+              showNotification('تمت إعادة ضبط كافة البيانات إلى الحالة الافتراضية بنجاح!');
             }}
             className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
           >
@@ -152,6 +157,14 @@ export const AdminDashboard: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="mb-6 p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center justify-between animate-in fade-in duration-200">
+          <span>{toastMessage}</span>
+          <button onClick={() => setToastMessage(null)} className="text-emerald-400 hover:text-white text-xs">✕</button>
+        </div>
+      )}
 
       {/* Admin Navigation Tabs */}
       <div className="flex flex-wrap gap-2 mb-8 bg-slate-900/80 p-2 rounded-2xl border border-slate-800 w-fit">
@@ -238,9 +251,8 @@ export const AdminDashboard: React.FC = () => {
                       <td className="p-3.5 text-end">
                         <button
                           onClick={() => {
-                            if (window.confirm(`حذف إعلان "${job.title}"؟`)) {
-                              deleteJob(job.id);
-                            }
+                            deleteJob(job.id);
+                            showNotification(`تم حذف إعلان "${job.title}"`);
                           }}
                           className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400"
                           title="حذف"
@@ -305,9 +317,8 @@ export const AdminDashboard: React.FC = () => {
                       <td className="p-3.5 text-end">
                         <button
                           onClick={() => {
-                            if (window.confirm(`حذف سكن "${h.title}"؟`)) {
-                              deleteHousing(h.id);
-                            }
+                            deleteHousing(h.id);
+                            showNotification(`تم حذف سكن "${h.title}"`);
                           }}
                           className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400"
                           title="حذف"
