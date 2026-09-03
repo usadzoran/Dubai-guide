@@ -1,0 +1,133 @@
+export type Language = 'ar' | 'en' | 'fr';
+
+export type JobStatus = 'active' | 'check_status' | 'expired';
+
+export interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  category: string;
+  employmentType: 'Full Time' | 'Part Time' | 'Contract';
+  experience: 'Entry Level' | '1-2 years' | '3-5 years' | 'Experienced';
+  salary?: string;
+  source: string;
+  sourceUrl: string;
+  dateFound: string;
+  status: JobStatus;
+  description: string;
+  requirements: string[];
+  featured?: boolean;
+}
+
+export type HousingType = 'bed_space' | 'shared_room' | 'partition' | 'private_room' | 'studio';
+
+export type VerificationStatus = 'verified' | 'check_before_payment' | 'suspicious';
+
+export interface HousingListing {
+  id: string;
+  title: string;
+  type: HousingType;
+  price: number; // in AED
+  area: string;
+  address: string;
+  nearMetro: boolean;
+  metroStation?: string;
+  metroWalkMinutes?: number;
+  verificationStatus: VerificationStatus;
+  verificationNote: string;
+  billsIncluded: boolean;
+  images: string[];
+  contactPhone: string;
+  whatsapp: string;
+  amenities: string[];
+  gender: 'men' | 'women' | 'any';
+  description: string;
+  datePosted: string;
+}
+
+export interface RecruitmentOffice {
+  id: string;
+  name: string;
+  address: string;
+  area: string;
+  phone?: string;
+  website: string;
+  googleMapsUrl: string;
+  category: string;
+  specializations: string[];
+  rating?: number;
+  reviewsCount?: number;
+  openingHours?: string;
+  verificationLabel: string;
+  notes?: string;
+  coordinates: [number, number]; // [lat, lng]
+}
+
+export type PlaceCategory = 'all' | 'metro' | 'recruitment' | 'housing_hub' | 'government' | 'cheap_market' | 'service';
+
+export interface MapPoint {
+  id: string;
+  name: string;
+  nameEn?: string;
+  type: 'job' | 'recruitment' | 'housing' | 'metro' | 'service' | 'government' | 'cheap_market' | 'housing_hub';
+  category: string;
+  coordinates: [number, number]; // [lat, lng]
+  address: string;
+  area?: string;
+  metroStation?: string;
+  phone?: string;
+  website?: string;
+  openingHours?: string;
+  extraInfo?: string;
+  description?: string;
+  googleMapsUrl?: string;
+}
+
+export type MapPlace = MapPoint;
+
+export interface SafetyTip {
+  id: string;
+  title: string;
+  problem: string;
+  whyDangerous: string;
+  whatToDo: string;
+  uaeLawReference: string;
+  iconName: string;
+}
+
+export interface StarterPlanQuestionnaire {
+  nationality: string;
+  profession: string;
+  budget: string;
+  hasHousing: boolean;
+  hasJobOffer: boolean;
+  planLanguage: Language;
+}
+
+export interface DayPlan {
+  dayNumber: number;
+  title: string;
+  summary: string;
+  tasks: {
+    id: string;
+    text: string;
+    tips: string;
+    completed?: boolean;
+    urgent?: boolean;
+  }[];
+}
+
+export type ReportType = 'job' | 'housing' | 'recruitment' | 'scam_whatsapp' | 'fake_listing' | 'asking_fees' | 'expired' | 'other';
+
+export interface UserReport {
+  id: string;
+  targetType: ReportType;
+  targetId: string;
+  targetTitle: string;
+  reason: ReportType;
+  details: string;
+  contactEmail?: string;
+  createdAt: string;
+  status: 'new' | 'reviewed' | 'dismissed';
+}

@@ -1,0 +1,6 @@
+{
+  "name": "DubaiStart",
+  "description": "دليلك الشامل للبداية في دبي - وظائف، سكن، مكاتب توظيف، خريطة تفاعلية، وخطة أول أسبوع للقادمين الجدد",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
