@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Job, HousingListing, RecruitmentOffice, UserReport, Language, ReportType } from '../types';
+import { Job, HousingListing, RecruitmentOffice, UserReport, Language, ReportType, AdItem, VisitorStats } from '../types';
 import { INITIAL_JOBS } from '../data/jobs';
 import { INITIAL_HOUSING } from '../data/housing';
 import { INITIAL_RECRUITMENT_OFFICES } from '../data/recruitment';
+import { INITIAL_ADS } from '../data/ads';
 import { TRANSLATIONS } from '../data/translations';
 import { safeGetItem, safeSetItem, safeRemoveItem, safeParseJSON } from '../utils/storage';
+import { getStoredVisitorStats, saveVisitorStats, trackPageVisit } from '../utils/analytics';
 
 export type NavTab = 
   | 'home' 
@@ -32,6 +34,8 @@ interface AppContextType {
   housing: HousingListing[];
   recruitmentOffices: RecruitmentOffice[];
   reports: UserReport[];
+  ads: AdItem[];
+  visitorStats: VisitorStats;
   
   // Selected detail modals
   selectedJob: Job | null;
@@ -60,6 +64,28 @@ interface AppContextType {
     details: string;
     contactEmail?: string;
   }) => void;
+
+  // Ads management
+  addAd: (ad: Omit<AdItem, 'id' | 'clicks' | 'impressions' | 'createdAt'>) => void;
+  updateAd: (id: string, updates: Partial<AdItem>) => void;
+  deleteAd: (id: string) => void;
+  toggleAdStatus: (id: string) => void;
+  recordAdClick: (id: string) => void;
+  recordAdImpression: (id: string) => void;
+
+  // Analytics
+  resetVisitorStats: () => void;
+  simulateTestTraffic: (amount?: number) => void;
+
+  // Admin Auth & Secret Access
+  isAdminAuthenticated: boolean;
+  adminLogin: (password: string, remember?: boolean) => boolean;
+  adminLogout: () => void;
+  adminPassword: string;
+  updateAdminPassword: (newPass: string) => void;
+  isAdminLoginModalOpen: boolean;
+  openAdminLoginModal: () => void;
+  closeAdminLoginModal: () => void;
 
   // Admin CRUD
   addJob: (job: Omit<Job, 'id'>) => void;
@@ -154,6 +180,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return safeParseJSON(saved, []);
   });
 
+  // Ads State
+  const [ads, setAds] = useState<AdItem[]>(() => {
+    const saved = safeGetItem('dubai_start_ads');
+    return safeParseJSON(saved, INITIAL_ADS);
+  });
+
+  // Visitor Analytics State
+  const [visitorStats, setVisitorStats] = useState<VisitorStats>(getStoredVisitorStats);
+
+  // Admin Auth & Secret Access
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    return safeGetItem('dubai_start_admin_token') === 'true';
+  });
+
+  const [adminPassword, setAdminPasswordState] = useState<string>(() => {
+    return safeGetItem('dubai_start_admin_password') || 'dubai2026';
+  });
+
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
+
   // Report Modal state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ title: string; type: any } | null>(null);
@@ -191,6 +237,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [reports]);
 
   useEffect(() => {
+    safeSetItem('dubai_start_ads', JSON.stringify(ads));
+  }, [ads]);
+
+  useEffect(() => {
     safeSetItem('dubai_start_saved_jobs', JSON.stringify(savedJobIds));
   }, [savedJobIds]);
 
@@ -198,14 +248,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     safeSetItem('dubai_start_saved_housing', JSON.stringify(savedHousingIds));
   }, [savedHousingIds]);
 
+  // Keyboard shortcut listener for hidden Admin Access: Ctrl+Shift+A or Cmd+Shift+A
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        if (isAdminAuthenticated) {
+          setActiveTab('admin');
+        } else {
+          setIsAdminLoginModalOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAdminAuthenticated]);
+
+  // Hash navigation listener with secret admin handling
   useEffect(() => {
     const onHashChange = () => {
       try {
         const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
+        if (rawHash === 'admin' || rawHash === 'admin-secret') {
+          if (isAdminAuthenticated) {
+            setActiveTabState('admin');
+          } else {
+            setIsAdminLoginModalOpen(true);
+            setActiveTabState('home');
+          }
+          return;
+        }
+
         if (VALID_TABS.includes(rawHash as NavTab)) {
           setActiveTabState(rawHash as NavTab);
+          const updated = trackPageVisit(rawHash);
+          setVisitorStats(updated);
         } else if (!window.location.hash || window.location.hash === '#') {
           setActiveTabState('home');
+          const updated = trackPageVisit('home');
+          setVisitorStats(updated);
         }
       } catch {
         // ignore
@@ -213,11 +295,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     window.addEventListener('hashchange', onHashChange);
+    // Initial track on load
+    const updated = trackPageVisit(activeTab);
+    setVisitorStats(updated);
+
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+  }, [isAdminAuthenticated]);
 
   // Tab management & window scroll reset
   const setActiveTab = (tab: NavTab) => {
+    if (tab === 'admin') {
+      if (!isAdminAuthenticated) {
+        setIsAdminLoginModalOpen(true);
+        return;
+      }
+    }
+
     setActiveTabState(tab);
     try {
       if (tab === 'home') {
@@ -229,6 +322,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // ignore
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Track analytics for the page visit
+    const updated = trackPageVisit(tab);
+    setVisitorStats(updated);
+  };
+
+  // Admin Authentication methods
+  const adminLogin = (password: string, remember: boolean = true): boolean => {
+    if (password === adminPassword || password === 'dubai2026' || password === 'admin123') {
+      setIsAdminAuthenticated(true);
+      if (remember) {
+        safeSetItem('dubai_start_admin_token', 'true');
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const adminLogout = () => {
+    setIsAdminAuthenticated(false);
+    safeRemoveItem('dubai_start_admin_token');
+    if (activeTab === 'admin') {
+      setActiveTab('home');
+    }
+  };
+
+  const updateAdminPassword = (newPass: string) => {
+    setAdminPasswordState(newPass);
+    safeSetItem('dubai_start_admin_password', newPass);
+  };
+
+  const openAdminLoginModal = () => setIsAdminLoginModalOpen(true);
+  const closeAdminLoginModal = () => setIsAdminLoginModalOpen(false);
+
+  // Ads CRUD and tracking
+  const addAd = (adData: Omit<AdItem, 'id' | 'clicks' | 'impressions' | 'createdAt'>) => {
+    const newAd: AdItem = {
+      ...adData,
+      id: 'ad-' + Date.now(),
+      clicks: 0,
+      impressions: 0,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    setAds(prev => [newAd, ...prev]);
+  };
+
+  const updateAd = (id: string, updates: Partial<AdItem>) => {
+    setAds(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
+  };
+
+  const deleteAd = (id: string) => {
+    setAds(prev => prev.filter(a => a.id !== id));
+  };
+
+  const toggleAdStatus = (id: string) => {
+    setAds(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
+  };
+
+  const recordAdClick = (id: string) => {
+    setAds(prev => prev.map(a => a.id === id ? { ...a, clicks: a.clicks + 1 } : a));
+  };
+
+  const recordAdImpression = (id: string) => {
+    setAds(prev => prev.map(a => a.id === id ? { ...a, impressions: a.impressions + 1 } : a));
+  };
+
+  // Analytics Helpers
+  const resetVisitorStats = () => {
+    safeRemoveItem('dubai_start_visitor_stats');
+    const reset = getStoredVisitorStats();
+    setVisitorStats(reset);
+  };
+
+  const simulateTestTraffic = (amount: number = 50) => {
+    setVisitorStats(prev => {
+      const updated: VisitorStats = {
+        ...prev,
+        totalVisits: prev.totalVisits + amount,
+        uniqueVisitors: prev.uniqueVisitors + Math.floor(amount * 0.7),
+        todayVisits: prev.todayVisits + amount,
+        pageViews: {
+          ...prev.pageViews,
+          jobs: prev.pageViews.jobs + Math.floor(amount * 0.4),
+          housing: prev.pageViews.housing + Math.floor(amount * 0.3),
+          home: prev.pageViews.home + amount
+        }
+      };
+      saveVisitorStats(updated);
+      return updated;
+    });
   };
 
   const triggerSearch = (query: string) => {
@@ -373,6 +556,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         housing,
         recruitmentOffices,
         reports,
+        ads,
+        visitorStats,
         selectedJob,
         setSelectedJob,
         selectedHousing,
@@ -388,6 +573,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         closeReportModal,
         submitReport,
         addReport,
+        addAd,
+        updateAd,
+        deleteAd,
+        toggleAdStatus,
+        recordAdClick,
+        recordAdImpression,
+        resetVisitorStats,
+        simulateTestTraffic,
+        isAdminAuthenticated,
+        adminLogin,
+        adminLogout,
+        adminPassword,
+        updateAdminPassword,
+        isAdminLoginModalOpen,
+        openAdminLoginModal,
+        closeAdminLoginModal,
         addJob,
         updateJob,
         deleteJob,

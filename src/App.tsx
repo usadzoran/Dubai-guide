@@ -18,12 +18,23 @@ import { MoreView } from './components/more/MoreView';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ReportModal } from './components/common/ReportModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { AdTopBanner } from './components/ads/AdTopBanner';
+import { AdHeroBanner } from './components/ads/AdHeroBanner';
+import { AdFloatingBadge } from './components/ads/AdFloatingBadge';
+import { AdminLoginModal } from './components/admin/AdminLoginModal';
+import { AdminStatusBadge } from './components/admin/AdminStatusBadge';
 
 const AppContent: React.FC = () => {
   const { activeTab } = useApp();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950 relative">
+      {/* Top Promotional Ad Banner */}
+      <AdTopBanner />
+
+      {/* Secret Admin floating status badge when logged in */}
+      <AdminStatusBadge />
+
       {/* Sticky Top Header */}
       <Header />
 
@@ -32,6 +43,7 @@ const AppContent: React.FC = () => {
         {activeTab === 'home' && (
           <div>
             <Hero />
+            <AdHeroBanner />
             <SafetyAlert />
             <CategoryCards />
             <AlgerianGuideBanner />
@@ -49,6 +61,9 @@ const AppContent: React.FC = () => {
         {activeTab === 'admin' && <AdminDashboard />}
       </main>
 
+      {/* Floating Corner Ad & Quick Assistance Widget */}
+      <AdFloatingBadge />
+
       {/* Global Footer */}
       <Footer />
 
@@ -57,6 +72,9 @@ const AppContent: React.FC = () => {
 
       {/* Global Report Fraud Modal */}
       <ReportModal />
+
+      {/* Protected Admin Secret Login Modal */}
+      <AdminLoginModal />
     </div>
   );
 };

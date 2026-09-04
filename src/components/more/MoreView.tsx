@@ -181,7 +181,7 @@ export const MoreView: React.FC = () => {
         </div>
       </div>
 
-      {/* Report Button & Admin Link */}
+      {/* Report Button & Emergency Link */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800">
         <button
           onClick={() => openReportModal('تقرير مشبوه من صفحة المزيد', 'other')}
@@ -191,13 +191,7 @@ export const MoreView: React.FC = () => {
           <span>إبلاغ عن إعلان مشبوه أو رقم نصب</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('admin')}
-          className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-        >
-          <Lock className="w-3.5 h-3.5 text-amber-400" />
-          <span>لوحة التحكم الإدارية (Admin Dashboard)</span>
-        </button>
+        <span className="text-xs text-slate-500 font-mono">DubaiStart Newcomer Hub</span>
       </div>
 
     </div>

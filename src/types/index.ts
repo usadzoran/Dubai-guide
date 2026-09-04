@@ -131,3 +131,57 @@ export interface UserReport {
   createdAt: string;
   status: 'new' | 'reviewed' | 'dismissed';
 }
+
+export type AdPlacement = 'top_banner' | 'home_hero' | 'jobs_feed' | 'housing_feed' | 'floating_badge';
+
+export interface AdItem {
+  id: string;
+  title: string;
+  description: string;
+  placement: AdPlacement;
+  imageUrl?: string;
+  ctaText: string;
+  ctaLink: string;
+  badge?: string;
+  active: boolean;
+  clicks: number;
+  impressions: number;
+  bgStyle?: 'gold' | 'emerald' | 'dark' | 'gradient';
+  createdAt: string;
+}
+
+export interface VisitorStats {
+  totalVisits: number;
+  uniqueVisitors: number;
+  todayVisits: number;
+  liveOnline: number;
+  pageViews: {
+    home: number;
+    jobs: number;
+    housing: number;
+    recruitment: number;
+    map: number;
+    starterPlan: number;
+    safety: number;
+    algeriaGuide: number;
+    more: number;
+    admin: number;
+  };
+  deviceBreakdown: {
+    mobile: number;
+    desktop: number;
+    tablet: number;
+  };
+  countryBreakdown: {
+    country: string;
+    code: string;
+    percentage: number;
+    count: number;
+  }[];
+  dailyHistory: {
+    date: string;
+    dayName: string;
+    visits: number;
+    unique: number;
+  }[];
+}

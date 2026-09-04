@@ -18,6 +18,7 @@ import {
 import { HOUSING_AREAS } from '../../data/housing';
 import { HousingListing, HousingType, VerificationStatus } from '../../types';
 import { HousingDetailModal } from './HousingDetailModal';
+import { AdFeedCard } from '../ads/AdFeedCard';
 
 export const HousingView: React.FC = () => {
   const { 
@@ -238,17 +239,17 @@ export const HousingView: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredListings.map(item => {
+          {filteredListings.map((item, index) => {
             const isSaved = savedHousingIds.includes(item.id);
             return (
-              <div
-                key={item.id}
-                className={`group bg-slate-900 border rounded-2xl overflow-hidden shadow-lg flex flex-col justify-between transition-all ${
-                  item.verificationStatus === 'suspicious'
-                    ? 'border-rose-800/70 bg-rose-950/20'
-                    : 'border-slate-800 hover:border-amber-400/50'
-                }`}
-              >
+              <React.Fragment key={item.id}>
+                <div
+                  className={`group bg-slate-900 border rounded-2xl overflow-hidden shadow-lg flex flex-col justify-between transition-all ${
+                    item.verificationStatus === 'suspicious'
+                      ? 'border-rose-800/70 bg-rose-950/20'
+                      : 'border-slate-800 hover:border-amber-400/50'
+                  }`}
+                >
                 <div>
                   
                   {/* Photo Thumbnail */}
@@ -367,8 +368,15 @@ export const HousingView: React.FC = () => {
                 </div>
 
               </div>
-            );
-          })}
+
+              {index === 2 && (
+                <div className="col-span-full">
+                  <AdFeedCard placement="housing_feed" />
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
         </div>
       )}
 

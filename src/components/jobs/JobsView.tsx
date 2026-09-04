@@ -18,6 +18,7 @@ import {
 import { JOB_CATEGORIES, DUBAI_AREAS } from '../../data/jobs';
 import { Job, JobStatus } from '../../types';
 import { JobDetailModal } from './JobDetailModal';
+import { AdFeedCard } from '../ads/AdFeedCard';
 
 export const JobsView: React.FC = () => {
   const { 
@@ -282,13 +283,13 @@ export const JobsView: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          {filteredJobs.map((job) => {
+          {filteredJobs.map((job, index) => {
             const isSaved = savedJobIds.includes(job.id);
             return (
-              <div
-                key={job.id}
-                className="group relative bg-slate-900 border border-slate-800 hover:border-amber-400/50 rounded-2xl p-5 transition-all duration-200 shadow-md hover:shadow-xl flex flex-col justify-between"
-              >
+              <React.Fragment key={job.id}>
+                <div
+                  className="group relative bg-slate-900 border border-slate-800 hover:border-amber-400/50 rounded-2xl p-5 transition-all duration-200 shadow-md hover:shadow-xl flex flex-col justify-between"
+                >
                 <div>
                   
                   {/* Top Badges */}
@@ -399,7 +400,15 @@ export const JobsView: React.FC = () => {
                   </div>
                 </div>
 
-              </div>
+                {/* Main Card Div End */}
+                </div>
+
+                {index === 1 && (
+                  <div className="md:col-span-2">
+                    <AdFeedCard placement="jobs_feed" />
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
         </div>

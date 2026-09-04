@@ -191,21 +191,6 @@ export const Header: React.FC = () => {
               </button>
             )}
 
-            {/* Admin Portal Quick Access */}
-            <button
-              onClick={() => setActiveTab('admin')}
-              className={`p-2 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium ${
-                activeTab === 'admin'
-                  ? 'bg-amber-400 text-slate-950 font-bold'
-                  : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-amber-300 hover:border-amber-400/40'
-              }`}
-              title="Admin Panel"
-              id="btn-admin-portal"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline text-[11px]">Admin</span>
-            </button>
-
             {/* Mobile Menu Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

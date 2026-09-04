@@ -13,9 +13,18 @@ import {
   CheckCircle2, 
   AlertTriangle,
   X,
-  Eye
+  Eye,
+  Activity,
+  Layers,
+  Shield,
+  KeyRound,
+  Download,
+  LogOut,
+  Sparkles
 } from 'lucide-react';
 import { Job, HousingListing, RecruitmentOffice, UserReport } from '../../types';
+import { AdminVisitorsSection } from './AdminVisitorsSection';
+import { AdminAdsSection } from './AdminAdsSection';
 
 export const AdminDashboard: React.FC = () => {
   const { 
@@ -29,12 +38,17 @@ export const AdminDashboard: React.FC = () => {
     reports,
     updateReportStatus,
     resetToDefaultData,
-    setActiveTab
+    setActiveTab,
+    ads,
+    visitorStats,
+    adminPassword,
+    updateAdminPassword,
+    adminLogout
   } = useApp();
 
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true); // default accessible for prototype
-  const [adminPassword, setAdminPassword] = useState<string>('');
-  const [activeAdminTab, setActiveAdminTab] = useState<'jobs' | 'housing' | 'offices' | 'reports'>('jobs');
+  const [activeAdminTab, setActiveAdminTab] = useState<
+    'visitors' | 'ads' | 'jobs' | 'housing' | 'offices' | 'reports' | 'security'
+  >('visitors');
 
   // Job Form State
   const [showJobModal, setShowJobModal] = useState(false);
@@ -56,6 +70,11 @@ export const AdminDashboard: React.FC = () => {
   const [newHouseMetro, setNewHouseMetro] = useState('Union Metro Station');
   const [newHouseStatus, setNewHouseStatus] = useState<'verified' | 'check_before_payment' | 'suspicious'>('verified');
   const [newHousePhone, setNewHousePhone] = useState('+971501234567');
+
+  // Security password state
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [passwordToast, setPasswordToast] = useState<string | null>(null);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showNotification = (msg: string) => {
@@ -119,60 +138,142 @@ export const AdminDashboard: React.FC = () => {
     showNotification('تمت إضافة إعلان السكن بنجاح!');
   };
 
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPasswordInput.trim().length < 4) {
+      setPasswordToast('كلمة المرور يجب أن لا تقل عن 4 أحرف أو أرقام!');
+      return;
+    }
+    updateAdminPassword(newPasswordInput.trim());
+    setNewPasswordInput('');
+    setPasswordToast('تم تحديث كلمة مرور المشرف بنجاح! استخدمها للدخول القادم.');
+    setTimeout(() => setPasswordToast(null), 4000);
+  };
+
+  const handleExportBackup = () => {
+    const data = {
+      exportedAt: new Date().toISOString(),
+      visitorStats,
+      ads,
+      jobs,
+      housing,
+      recruitmentOffices,
+      reports
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dubai-start-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotification('تم تحميل نسخة احتياطية كاملة من قاعدة البيانات بنجاح!');
+  };
+
+  const pendingReportsCount = reports.filter(r => r.status === 'new').length;
+  const activeAdsCount = ads.filter(a => a.active).length;
+
   return (
-    <div className="py-8 sm:py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-in fade-in duration-200">
+    <div className="py-6 sm:py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-in fade-in duration-200">
       
       {/* Admin Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-800">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/15 text-amber-400 border border-amber-400/30 text-xs font-bold mb-2">
             <Lock className="w-3.5 h-3.5" />
-            <span>لوحة التحكم الإدارية (Internal Admin Dashboard)</span>
+            <span>لوحة التحكم الإدارية السرية (Admin Dashboard)</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">
-            إدارة بيانات DubaiStart
+            مركز القيادة والبيانات DubaiStart
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-1">
-            إضافة وتعديل الوظائف، خيارات السكن، فحص بلاغات الاحتيال الواردة من المستخدمين.
+            متابعة زوار الموقع لحظياً، إدارة الإعلانات في مختلف المواضع، وتحديث الوظائف والسكن.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleExportBackup}
+            className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            title="تصدير نسخة احتياطية"
+          >
+            <Download className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden sm:inline">نسخة احتياطية</span>
+          </button>
+
           <button
             onClick={() => {
-              resetToDefaultData();
-              showNotification('تمت إعادة ضبط كافة البيانات إلى الحالة الافتراضية بنجاح!');
+              if (window.confirm('هل أنت متأكد من رغبتك في استعادة البيانات الأصلية الافتراضية؟')) {
+                resetToDefaultData();
+                showNotification('تمت إعادة ضبط كافة البيانات إلى الحالة الافتراضية بنجاح!');
+              }
             }}
             className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-            <span>إعادة ضبط البيانات</span>
+            <span>إعادة ضبط</span>
           </button>
-          
+
           <button
             onClick={() => setActiveTab('home')}
-            className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-colors"
+            className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition-colors"
           >
-            العودة للموقع
+            معاينة الموقع
+          </button>
+
+          <button
+            onClick={adminLogout}
+            className="p-2 rounded-xl bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 text-xs transition-colors"
+            title="تسجيل الخروج وقفل اللوحة"
+          >
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="mb-6 p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center justify-between animate-in fade-in duration-200">
+        <div className="mb-6 p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs sm:text-sm font-semibold flex items-center justify-between animate-in fade-in duration-200">
           <span>{toastMessage}</span>
           <button onClick={() => setToastMessage(null)} className="text-emerald-400 hover:text-white text-xs">✕</button>
         </div>
       )}
 
       {/* Admin Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 mb-8 bg-slate-900/80 p-1.5 sm:p-2 rounded-2xl border border-slate-800 w-full sm:w-fit">
+      <div className="flex flex-wrap gap-2 mb-8 bg-slate-900/90 p-1.5 sm:p-2 rounded-2xl border border-slate-800 w-full overflow-x-auto">
+        
+        {/* Visitors Stats Tab */}
+        <button
+          onClick={() => setActiveAdminTab('visitors')}
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
+            activeAdminTab === 'visitors'
+              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          <span>إحصائيات وزوار الموقع ({visitorStats.totalVisits.toLocaleString()})</span>
+        </button>
+
+        {/* Ads Manager Tab */}
+        <button
+          onClick={() => setActiveAdminTab('ads')}
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
+            activeAdminTab === 'ads'
+              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>قسم الإعلانات ({activeAdsCount} نشط)</span>
+        </button>
+
+        {/* Jobs Tab */}
         <button
           onClick={() => setActiveAdminTab('jobs')}
-          className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
             activeAdminTab === 'jobs'
-              ? 'bg-amber-400 text-slate-950 shadow-sm'
+              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
               : 'text-slate-400 hover:text-white'
           }`}
         >
@@ -180,11 +281,12 @@ export const AdminDashboard: React.FC = () => {
           <span>إدارة الوظائف ({jobs.length})</span>
         </button>
 
+        {/* Housing Tab */}
         <button
           onClick={() => setActiveAdminTab('housing')}
-          className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
             activeAdminTab === 'housing'
-              ? 'bg-amber-400 text-slate-950 shadow-sm'
+              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
               : 'text-slate-400 hover:text-white'
           }`}
         >
@@ -192,24 +294,65 @@ export const AdminDashboard: React.FC = () => {
           <span>إدارة السكن ({housing.length})</span>
         </button>
 
+        {/* Offices Tab */}
+        <button
+          onClick={() => setActiveAdminTab('offices')}
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
+            activeAdminTab === 'offices'
+              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          <span>مكاتب التوظيف ({recruitmentOffices.length})</span>
+        </button>
+
+        {/* Reports Tab */}
         <button
           onClick={() => setActiveAdminTab('reports')}
-          className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
             activeAdminTab === 'reports'
-              ? 'bg-amber-400 text-slate-950 shadow-sm'
+              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
               : 'text-slate-400 hover:text-white'
           }`}
         >
           <Flag className="w-4 h-4 text-rose-400" />
-          <span>بلاغات المستخدمين ({reports.length})</span>
+          <span>بلاغات الاحتيال ({reports.length})</span>
+          {pendingReportsCount > 0 && (
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+          )}
         </button>
+
+        {/* Security & Password Tab */}
+        <button
+          onClick={() => setActiveAdminTab('security')}
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
+            activeAdminTab === 'security'
+              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <KeyRound className="w-4 h-4" />
+          <span>أمان المشرف</span>
+        </button>
+
       </div>
 
-      {/* TAB 1: JOBS MANAGEMENT */}
+      {/* TAB: VISITORS ANALYTICS */}
+      {activeAdminTab === 'visitors' && (
+        <AdminVisitorsSection />
+      )}
+
+      {/* TAB: ADS MANAGEMENT */}
+      {activeAdminTab === 'ads' && (
+        <AdminAdsSection />
+      )}
+
+      {/* TAB: JOBS MANAGEMENT */}
       {activeAdminTab === 'jobs' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h3 className="text-lg font-bold text-white">قائمة الوظائف المعروضة</h3>
+            <h3 className="text-lg font-bold text-white">قائمة الوظائف المعروضة في المنصة</h3>
             <button
               onClick={() => setShowJobModal(true)}
               className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/20"
@@ -239,23 +382,25 @@ export const AdminDashboard: React.FC = () => {
                       <td className="p-3.5 text-slate-300">{job.company}</td>
                       <td className="p-3.5 text-slate-400">{job.location}</td>
                       <td className="p-3.5">
-                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px]">
                           {job.category}
                         </span>
                       </td>
                       <td className="p-3.5">
-                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
-                          {job.status}
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">
+                          نشطة
                         </span>
                       </td>
                       <td className="p-3.5 text-end">
                         <button
                           onClick={() => {
-                            deleteJob(job.id);
-                            showNotification(`تم حذف إعلان "${job.title}"`);
+                            if (window.confirm('هل أنت متأكد من حذف هذه الوظيفة؟')) {
+                              deleteJob(job.id);
+                              showNotification('تم حذف الوظيفة بنجاح!');
+                            }
                           }}
-                          className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400"
-                          title="حذف"
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition-colors"
+                          title="حذف الوظيفة"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -269,11 +414,11 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: HOUSING MANAGEMENT */}
+      {/* TAB: HOUSING MANAGEMENT */}
       {activeAdminTab === 'housing' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h3 className="text-lg font-bold text-white">قائمة إعلانات السكن</h3>
+            <h3 className="text-lg font-bold text-white">إعلانات السكن والغرف المشتركة</h3>
             <button
               onClick={() => setShowHousingModal(true)}
               className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/20"
@@ -290,8 +435,8 @@ export const AdminDashboard: React.FC = () => {
                   <tr>
                     <th className="p-3.5 text-start">عنوان الإعلان</th>
                     <th className="p-3.5 text-start">النوع</th>
-                    <th className="p-3.5 text-start">المنطقة</th>
-                    <th className="p-3.5 text-start">السعر (شهري)</th>
+                    <th className="p-3.5 text-start">المنطقة والمترو</th>
+                    <th className="p-3.5 text-start">السعر</th>
                     <th className="p-3.5 text-start">حالة التحقق</th>
                     <th className="p-3.5 text-end">إجراءات</th>
                   </tr>
@@ -299,29 +444,29 @@ export const AdminDashboard: React.FC = () => {
                 <tbody className="divide-y divide-slate-800/60">
                   {housing.map((h) => (
                     <tr key={h.id} className="hover:bg-slate-800/40">
-                      <td className="p-3.5 font-bold text-white">{h.title}</td>
+                      <td className="p-3.5 font-bold text-white max-w-xs truncate">{h.title}</td>
                       <td className="p-3.5 text-slate-300">{h.type}</td>
-                      <td className="p-3.5 text-slate-400">{h.area}</td>
-                      <td className="p-3.5 font-bold text-amber-400">{h.price} AED</td>
+                      <td className="p-3.5 text-slate-400">{h.area} - {h.metroStation}</td>
+                      <td className="p-3.5 font-bold text-amber-400">{h.price} درهم</td>
                       <td className="p-3.5">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           h.verificationStatus === 'verified'
-                            ? 'bg-emerald-500/10 text-emerald-400'
-                            : h.verificationStatus === 'suspicious'
-                            ? 'bg-rose-500/10 text-rose-400'
-                            : 'bg-amber-500/10 text-amber-400'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                         }`}>
-                          {h.verificationStatus}
+                          {h.verificationStatus === 'verified' ? 'موثق' : 'تحقق قبل الدفع'}
                         </span>
                       </td>
                       <td className="p-3.5 text-end">
                         <button
                           onClick={() => {
-                            deleteHousing(h.id);
-                            showNotification(`تم حذف سكن "${h.title}"`);
+                            if (window.confirm('هل أنت متأكد من حذف هذا السكن؟')) {
+                              deleteHousing(h.id);
+                              showNotification('تم حذف إعلان السكن بنجاح!');
+                            }
                           }}
-                          className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400"
-                          title="حذف"
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition-colors"
+                          title="حذف السكن"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -335,59 +480,115 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: USER REPORTS */}
+      {/* TAB: OFFICES */}
+      {activeAdminTab === 'offices' && (
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-white">مكاتب التوظيف المعتمدة (مرخصة من وزارة الموارد البشرية MOHRE)</h3>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+            <div className="overflow-x-auto">
+              <table className="w-full text-start text-xs text-slate-300">
+                <thead className="bg-slate-950 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
+                  <tr>
+                    <th className="p-3.5 text-start">اسم المكتب</th>
+                    <th className="p-3.5 text-start">التصنيف</th>
+                    <th className="p-3.5 text-start">المنطقة</th>
+                    <th className="p-3.5 text-start">حالة التحقق</th>
+                    <th className="p-3.5 text-start">رسوم الباحث</th>
+                    <th className="p-3.5 text-start">الموقع الإلكتروني</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {recruitmentOffices.map((office) => (
+                    <tr key={office.id} className="hover:bg-slate-800/40">
+                      <td className="p-3.5 font-bold text-white">{office.name}</td>
+                      <td className="p-3.5 text-slate-300">{office.category}</td>
+                      <td className="p-3.5 text-slate-400">{office.area}</td>
+                      <td className="p-3.5 text-xs text-amber-400">{office.verificationLabel}</td>
+                      <td className="p-3.5">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
+                          مجاناً بحكم القانون
+                        </span>
+                      </td>
+                      <td className="p-3.5">
+                        <a 
+                          href={office.website} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sky-400 hover:underline"
+                        >
+                          زيارة الموقع ↗
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: REPORTS */}
       {activeAdminTab === 'reports' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">سجل بلاغات الاحتيال والمحتوى المشبوه</h3>
-            <span className="text-xs text-slate-400">إجمالي البلاغات: {reports.length}</span>
+            <h3 className="text-lg font-bold text-white">سجل البلاغات والشكاوى الواردة من المستخدمين</h3>
+            <span className="text-xs text-slate-400">{reports.length} بلاغ مسجل</span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {reports.map((report) => (
-              <div
-                key={report.id}
-                className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              <div 
+                key={report.id} 
+                className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3"
               >
-                <div className="space-y-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      report.status === 'new' 
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    }`}>
+                      {report.status === 'new' ? 'بلاغ جديد بحاجة للمراجعة' : 'تمت المراجعة'}
+                    </span>
                     <span className="text-xs font-bold text-white">{report.targetTitle}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                      {report.reason}
-                    </span>
-                    <span className="text-[10px] text-slate-500">{report.createdAt}</span>
                   </div>
-                  <p className="text-xs text-slate-300 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                    {report.details}
-                  </p>
-                  {report.contactEmail && (
-                    <span className="text-[11px] text-slate-400 block">
-                      المبلّغ: {report.contactEmail}
-                    </span>
-                  )}
+                  <span className="text-xs text-slate-500 font-mono">{report.createdAt}</span>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => updateReportStatus(report.id, 'reviewed')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                      report.status === 'reviewed'
-                        ? 'bg-emerald-500 text-slate-950'
-                        : 'bg-slate-800 text-slate-300 hover:text-white'
-                    }`}
-                  >
-                    تم الفحص والتحقق
-                  </button>
-                  <button
-                    onClick={() => updateReportStatus(report.id, 'dismissed')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                      report.status === 'dismissed'
-                        ? 'bg-slate-700 text-white'
-                        : 'bg-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    تجاهل
-                  </button>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800">
+                  {report.details}
+                </p>
+
+                {report.contactEmail && (
+                  <div className="text-xs text-slate-400">
+                    <span>بريد المبلّغ للتواصل: </span>
+                    <span className="text-sky-400 font-mono">{report.contactEmail}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  {report.status === 'new' ? (
+                    <button
+                      onClick={() => {
+                        updateReportStatus(report.id, 'reviewed');
+                        showNotification('تم تحديث حالة البلاغ إلى "تمت المراجعة"');
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold border border-emerald-500/30 transition-colors"
+                    >
+                      وضع علامة "تمت المراجعة"
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        updateReportStatus(report.id, 'dismissed');
+                        showNotification('تم أرشفة البلاغ');
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold transition-colors"
+                    >
+                      أرشفة
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -395,18 +596,81 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Add Job Modal */}
+      {/* TAB: SECURITY & SETTINGS */}
+      {activeAdminTab === 'security' && (
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl space-y-5 text-start">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-400/15 border border-amber-400/30 text-amber-400 flex items-center justify-center">
+                <Shield className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">إعدادات أمان المشرف والوصول</h3>
+                <p className="text-xs text-slate-400">تغيير كلمة المرور السرية وطرق الوصول للوحة</p>
+              </div>
+            </div>
+
+            {passwordToast && (
+              <div className="p-3.5 rounded-2xl bg-amber-400/15 border border-amber-400/30 text-amber-300 text-xs font-bold">
+                {passwordToast}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  كلمة مرور المشرف الحالية
+                </label>
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={adminPassword} 
+                  dir="ltr"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 font-mono text-xs select-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  كلمة المرور الجديدة (Master Password)
+                </label>
+                <input 
+                  type="text" 
+                  required
+                  value={newPasswordInput} 
+                  onChange={(e) => setNewPasswordInput(e.target.value)}
+                  placeholder="أدخل كلمة مرور سرية جديدة..."
+                  dir="ltr"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-sm focus:border-amber-400 focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition-all shadow-md shadow-amber-500/20"
+              >
+                تحديث وحفظ كلمة المرور
+              </button>
+            </form>
+
+            <div className="pt-4 border-t border-slate-800 space-y-2 text-xs text-slate-400">
+              <h4 className="font-bold text-white">طرق الوصول للوحة المشرف بعد إخفاء الزر عن الزوار:</h4>
+              <p>1. <strong>اختصار لوحة المفاتيح:</strong> الضغط على <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700">Ctrl + Shift + A</kbd> في أي وقت يفتح نافذة الدخول الفورية.</p>
+              <p>2. <strong>النقرة الخفية في الفوتر:</strong> النقر 5 مرات متتالية على عبارة حقوق النشر أسفل الصفحة.</p>
+              <p>3. <strong>رابط الهاش السري:</strong> إضافة <code className="text-amber-400 font-mono">#admin</code> أو <code className="text-amber-400 font-mono">#admin-secret</code> في نهاية رابط الموقع في المتصفح.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Job Modal */}
       {showJobModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-            <button
-              onClick={() => setShowJobModal(false)}
-              className="absolute top-4 end-4 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-bold text-white mb-4">إضافة إعلان وظيفة جديد</h3>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl text-start">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <h3 className="text-base font-bold text-white">إضافة وظيفة جديدة</h3>
+              <button onClick={() => setShowJobModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
 
             <form onSubmit={handleAddJob} className="space-y-3 text-xs">
               <div>
@@ -416,72 +680,71 @@ export const AdminDashboard: React.FC = () => {
                   type="text"
                   value={newJobTitle}
                   onChange={(e) => setNewJobTitle(e.target.value)}
-                  placeholder="مثال: Warehouse Storekeeper"
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 mb-1">اسم الشركة *</label>
-                <input
-                  required
-                  type="text"
-                  value={newJobCompany}
-                  onChange={(e) => setNewJobCompany(e.target.value)}
-                  placeholder="مثال: Al Futtaim Logistics"
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-400"
+                  placeholder="مثال: موظف استقبال / باريستا / محاسب..."
+                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1">المنطقة</label>
+                  <label className="block text-slate-300 mb-1">اسم الشركة *</label>
+                  <input
+                    required
+                    type="text"
+                    value={newJobCompany}
+                    onChange={(e) => setNewJobCompany(e.target.value)}
+                    placeholder="Al Futtaim / Landmark..."
+                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1">الراتب التقريبي</label>
+                  <input
+                    type="text"
+                    value={newJobSalary}
+                    onChange={(e) => setNewJobSalary(e.target.value)}
+                    placeholder="3,000 - 4,500 AED"
+                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 mb-1">المنطقة في دبي</label>
                   <input
                     type="text"
                     value={newJobLocation}
                     onChange={(e) => setNewJobLocation(e.target.value)}
-                    placeholder="مثال: Al Quoz, Dubai"
-                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-400"
+                    placeholder="Deira / Business Bay..."
+                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
                   />
                 </div>
-
                 <div>
                   <label className="block text-slate-300 mb-1">القطاع</label>
                   <select
                     value={newJobCategory}
                     onChange={(e) => setNewJobCategory(e.target.value)}
-                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-400"
+                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
                   >
-                    <option value="Warehouse">Warehouse</option>
-                    <option value="Driver">Driver</option>
-                    <option value="Sales">Sales</option>
-                    <option value="Cleaner">Cleaner</option>
-                    <option value="Security">Security</option>
-                    <option value="Admin">Admin</option>
+                    <option value="Hospitality">ضيافة ومطاعم</option>
+                    <option value="Retail & Sales">مبيعات وتجزئة</option>
+                    <option value="Warehouse">مستودعات ولوجستيات</option>
+                    <option value="Customer Service">خدمة عملاء واستقبال</option>
+                    <option value="Admin & Office">سكرتاريا ومكتبي</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 mb-1">الراتب المتوقع</label>
-                <input
-                  type="text"
-                  value={newJobSalary}
-                  onChange={(e) => setNewJobSalary(e.target.value)}
-                  placeholder="مثال: 3,000 - 4,000 AED"
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 mb-1">رابط التقديم الأصلي (LinkedIn / Career portal)</label>
+                <label className="block text-slate-300 mb-1">رابط التقديم الرسمي</label>
                 <input
                   type="url"
                   value={newJobUrl}
                   onChange={(e) => setNewJobUrl(e.target.value)}
-                  placeholder="https://www.linkedin.com/jobs/view/..."
+                  placeholder="https://..."
                   dir="ltr"
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-400"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
                 />
               </div>
 
@@ -497,7 +760,7 @@ export const AdminDashboard: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-amber-400 text-slate-950 font-bold"
                 >
-                  حفظ ونشر
+                  حفظ ونشر الوظيفة
                 </button>
               </div>
             </form>
@@ -505,18 +768,14 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Add Housing Modal */}
+      {/* Housing Modal */}
       {showHousingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-            <button
-              onClick={() => setShowHousingModal(false)}
-              className="absolute top-4 end-4 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-bold text-white mb-4">إضافة إعلان سكن جديد</h3>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl text-start">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <h3 className="text-base font-bold text-white">إضافة إعلان سكن جديد</h3>
+              <button onClick={() => setShowHousingModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
 
             <form onSubmit={handleAddHousing} className="space-y-3 text-xs">
               <div>
@@ -526,27 +785,26 @@ export const AdminDashboard: React.FC = () => {
                   type="text"
                   value={newHouseTitle}
                   onChange={(e) => setNewHouseTitle(e.target.value)}
-                  placeholder="مثال: سرير في غرفة هادئة 3 دقائق من محطة مترو الاتحاد"
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-400"
+                  placeholder="مثال: سرير في غرفة ثلاثية هادئة شامل الخدمات..."
+                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1">النوع</label>
+                  <label className="block text-slate-300 mb-1">نوع السكن</label>
                   <select
                     value={newHouseType}
                     onChange={(e) => setNewHouseType(e.target.value as any)}
                     className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white"
                   >
-                    <option value="bed_space">Bed Space</option>
+                    <option value="bed_space">سرير فردي (Bed Space)</option>
+                    <option value="partition">بارتيشن مغلق (Partition)</option>
                     <option value="shared_room">غرفة مشتركة</option>
-                    <option value="partition">بارتيشن</option>
                     <option value="private_room">غرفة خاصة</option>
-                    <option value="studio">استوديو</option>
+                    <option value="studio">استوديو كامل</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-slate-300 mb-1">السعر الشهري (درهم) *</label>
                   <input
