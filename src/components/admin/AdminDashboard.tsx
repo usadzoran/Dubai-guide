@@ -167,10 +167,10 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* Admin Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 mb-8 bg-slate-900/80 p-2 rounded-2xl border border-slate-800 w-fit">
+      <div className="flex flex-wrap gap-2 mb-8 bg-slate-900/80 p-1.5 sm:p-2 rounded-2xl border border-slate-800 w-full sm:w-fit">
         <button
           onClick={() => setActiveAdminTab('jobs')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+          className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
             activeAdminTab === 'jobs'
               ? 'bg-amber-400 text-slate-950 shadow-sm'
               : 'text-slate-400 hover:text-white'
@@ -182,7 +182,7 @@ export const AdminDashboard: React.FC = () => {
 
         <button
           onClick={() => setActiveAdminTab('housing')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+          className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
             activeAdminTab === 'housing'
               ? 'bg-amber-400 text-slate-950 shadow-sm'
               : 'text-slate-400 hover:text-white'
@@ -194,7 +194,7 @@ export const AdminDashboard: React.FC = () => {
 
         <button
           onClick={() => setActiveAdminTab('reports')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+          className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
             activeAdminTab === 'reports'
               ? 'bg-amber-400 text-slate-950 shadow-sm'
               : 'text-slate-400 hover:text-white'
@@ -208,11 +208,11 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 1: JOBS MANAGEMENT */}
       {activeAdminTab === 'jobs' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="text-lg font-bold text-white">قائمة الوظائف المعروضة</h3>
             <button
               onClick={() => setShowJobModal(true)}
-              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/20"
+              className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/20"
             >
               <Plus className="w-4 h-4" />
               <span>إضافة وظيفة جديدة</span>
@@ -272,11 +272,11 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 2: HOUSING MANAGEMENT */}
       {activeAdminTab === 'housing' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="text-lg font-bold text-white">قائمة إعلانات السكن</h3>
             <button
               onClick={() => setShowHousingModal(true)}
-              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/20"
+              className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/20"
             >
               <Plus className="w-4 h-4" />
               <span>إضافة سكن جديد</span>

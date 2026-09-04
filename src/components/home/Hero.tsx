@@ -104,7 +104,7 @@ export const Hero: React.FC = () => {
 
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-sm font-bold transition-colors shrink-0 shadow-sm"
+              className="px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs sm:text-sm font-bold transition-colors shrink-0 shadow-sm"
               id="hero-search-submit"
             >
               {t.searchBtn}

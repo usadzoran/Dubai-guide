@@ -84,7 +84,8 @@ export const HousingDetailModal: React.FC<Props> = ({ housing, onClose }) => {
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white shrink-0 transition-colors"
+            aria-label="إغلاق"
           >
             <X className="w-5 h-5" />
           </button>

@@ -209,8 +209,9 @@ export const Header: React.FC = () => {
             {/* Mobile Menu Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+              className="md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white active:bg-slate-800 transition-colors"
               id="btn-mobile-menu"
+              aria-label="القائمة الرئيسية"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -220,11 +221,11 @@ export const Header: React.FC = () => {
 
         {/* Mobile Collapsible Navigation Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-3 border-t border-slate-800/80 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="md:hidden py-3 border-t border-slate-800/80 space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
             <button
               onClick={() => { setActiveTab('home'); setMobileMenuOpen(false); }}
-              className={`w-full text-start px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2.5 ${
-                activeTab === 'home' ? 'bg-amber-400/15 text-amber-400 font-bold' : 'text-slate-300'
+              className={`w-full text-start px-3.5 py-3 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2.5 transition-colors ${
+                activeTab === 'home' ? 'bg-amber-400/15 text-amber-400 font-bold border border-amber-400/30' : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <span className="text-base">🏠</span>
@@ -232,8 +233,8 @@ export const Header: React.FC = () => {
             </button>
             <button
               onClick={() => { setActiveTab('jobs'); setMobileMenuOpen(false); }}
-              className={`w-full text-start px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2.5 ${
-                activeTab === 'jobs' ? 'bg-amber-400/15 text-amber-400 font-bold' : 'text-slate-300'
+              className={`w-full text-start px-3.5 py-3 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2.5 transition-colors ${
+                activeTab === 'jobs' ? 'bg-amber-400/15 text-amber-400 font-bold border border-amber-400/30' : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <Briefcase className="w-4 h-4 text-amber-400" />
@@ -241,8 +242,8 @@ export const Header: React.FC = () => {
             </button>
             <button
               onClick={() => { setActiveTab('housing'); setMobileMenuOpen(false); }}
-              className={`w-full text-start px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2.5 ${
-                activeTab === 'housing' ? 'bg-amber-400/15 text-amber-400 font-bold' : 'text-slate-300'
+              className={`w-full text-start px-3.5 py-3 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2.5 transition-colors ${
+                activeTab === 'housing' ? 'bg-amber-400/15 text-amber-400 font-bold border border-amber-400/30' : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <Home className="w-4 h-4 text-amber-400" />
@@ -250,8 +251,8 @@ export const Header: React.FC = () => {
             </button>
             <button
               onClick={() => { setActiveTab('recruitment'); setMobileMenuOpen(false); }}
-              className={`w-full text-start px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2.5 ${
-                activeTab === 'recruitment' ? 'bg-amber-400/15 text-amber-400 font-bold' : 'text-slate-300'
+              className={`w-full text-start px-3.5 py-3 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2.5 transition-colors ${
+                activeTab === 'recruitment' ? 'bg-amber-400/15 text-amber-400 font-bold border border-amber-400/30' : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <Compass className="w-4 h-4 text-amber-400" />
@@ -259,8 +260,8 @@ export const Header: React.FC = () => {
             </button>
             <button
               onClick={() => { setActiveTab('map'); setMobileMenuOpen(false); }}
-              className={`w-full text-start px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2.5 ${
-                activeTab === 'map' ? 'bg-amber-400/15 text-amber-400 font-bold' : 'text-slate-300'
+              className={`w-full text-start px-3.5 py-3 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2.5 transition-colors ${
+                activeTab === 'map' ? 'bg-amber-400/15 text-amber-400 font-bold border border-amber-400/30' : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <MapPin className="w-4 h-4 text-amber-400" />
@@ -268,8 +269,8 @@ export const Header: React.FC = () => {
             </button>
             <button
               onClick={() => { setActiveTab('starter-plan'); setMobileMenuOpen(false); }}
-              className={`w-full text-start px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2.5 ${
-                activeTab === 'starter-plan' ? 'bg-amber-400/15 text-amber-400 font-bold' : 'text-slate-300'
+              className={`w-full text-start px-3.5 py-3 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2.5 transition-colors ${
+                activeTab === 'starter-plan' ? 'bg-amber-400/15 text-amber-400 font-bold border border-amber-400/30' : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <Sparkles className="w-4 h-4 text-amber-400" />
@@ -277,8 +278,8 @@ export const Header: React.FC = () => {
             </button>
             <button
               onClick={() => { setActiveTab('algeria-guide'); setMobileMenuOpen(false); }}
-              className={`w-full text-start px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2.5 ${
-                activeTab === 'algeria-guide' ? 'bg-amber-400/15 text-amber-400 font-bold' : 'text-slate-300'
+              className={`w-full text-start px-3.5 py-3 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2.5 transition-colors ${
+                activeTab === 'algeria-guide' ? 'bg-amber-400/15 text-amber-400 font-bold border border-amber-400/30' : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <span className="text-base">🇩🇿</span>
@@ -286,8 +287,8 @@ export const Header: React.FC = () => {
             </button>
             <button
               onClick={() => { setActiveTab('safety'); setMobileMenuOpen(false); }}
-              className={`w-full text-start px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2.5 ${
-                activeTab === 'safety' ? 'bg-emerald-500/15 text-emerald-400 font-bold' : 'text-slate-300'
+              className={`w-full text-start px-3.5 py-3 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2.5 transition-colors ${
+                activeTab === 'safety' ? 'bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30' : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <ShieldAlert className="w-4 h-4 text-emerald-400" />

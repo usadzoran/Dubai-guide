@@ -101,7 +101,8 @@ export const JobDetailModal: React.FC<Props> = ({ job, onClose }) => {
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors shrink-0"
+              aria-label="إغلاق"
             >
               <X className="w-5 h-5" />
             </button>

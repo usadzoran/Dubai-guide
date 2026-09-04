@@ -21,6 +21,7 @@ export const MapView: React.FC = () => {
   const [activePlace, setActivePlace] = useState<MapPoint | null>(null);
   const [mapError, setMapError] = useState<boolean>(false);
   const [retryKey, setRetryKey] = useState<number>(0);
+  const [mobileViewMode, setMobileViewMode] = useState<'map' | 'list'>('map');
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -181,6 +182,7 @@ export const MapView: React.FC = () => {
   // Center map on a specific place
   const handleSelectPlace = (place: MapPoint) => {
     setActivePlace(place);
+    setMobileViewMode('map');
     if (mapInstanceRef.current) {
       const [lat, lng] = place.coordinates;
       mapInstanceRef.current.setView([lat, lng], 14, { animate: true });
@@ -196,10 +198,10 @@ export const MapView: React.FC = () => {
   };
 
   return (
-    <div className="py-8 sm:py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-in fade-in duration-200">
+    <div className="py-6 sm:py-12 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 animate-in fade-in duration-200">
       
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-xs font-bold mb-2">
           <MapPin className="w-3.5 h-3.5" />
           <span>خريطة النقاط والمحطات الحيوية</span>
@@ -214,13 +216,38 @@ export const MapView: React.FC = () => {
         </p>
       </div>
 
+      {/* Mobile Mode Switcher (Visible only below lg) */}
+      <div className="lg:hidden flex items-center bg-slate-900 border border-slate-800 p-1 rounded-2xl mb-4">
+        <button
+          onClick={() => setMobileViewMode('map')}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            mobileViewMode === 'map'
+              ? 'bg-amber-400 text-slate-950 shadow-md'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          <span>الخريطة التفاعلية 🗺️</span>
+        </button>
+        <button
+          onClick={() => setMobileViewMode('list')}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            mobileViewMode === 'list'
+              ? 'bg-amber-400 text-slate-950 shadow-md'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <span>قائمة الأماكن ({filteredPlaces.length}) 📋</span>
+        </button>
+      </div>
+
       {/* Categories Filter Pills */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-4 sm:mb-6">
         {PLACE_CATEGORIES.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setSelectedCategory(cat.id)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+            className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
               selectedCategory === cat.id
                 ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20'
                 : 'bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700'
@@ -232,12 +259,14 @@ export const MapView: React.FC = () => {
       </div>
 
       {/* Main Map + Sidebar Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
         
         {/* Interactive Leaflet Map Container (2 Cols) */}
-        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col justify-center">
+        <div className={`lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative flex flex-col justify-center ${
+          mobileViewMode === 'list' ? 'hidden lg:flex' : 'flex'
+        }`}>
           {mapError ? (
-            <div className="w-full h-[450px] sm:h-[550px] flex flex-col items-center justify-center p-6 text-center bg-slate-950/80">
+            <div className="w-full h-[380px] sm:h-[500px] lg:h-[550px] flex flex-col items-center justify-center p-6 text-center bg-slate-950/80">
               <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-3">
                 <MapPin className="w-7 h-7" />
               </div>
@@ -256,20 +285,22 @@ export const MapView: React.FC = () => {
             <>
               <div 
                 ref={mapContainerRef} 
-                className="w-full h-[450px] sm:h-[550px] z-10"
+                className="w-full h-[380px] sm:h-[500px] lg:h-[550px] z-10"
                 id="dubai-interactive-map"
               />
 
               {/* Map Overlay helper badge */}
-              <div className="absolute top-3 end-3 z-20 bg-slate-950/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl text-[11px] font-semibold text-amber-400 shadow-md">
-                اضغط على أي نقطة لعرض التفاصيل والاتجاهات
+              <div className="absolute top-3 end-3 z-20 bg-slate-950/90 backdrop-blur-md border border-slate-800 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-[11px] font-semibold text-amber-400 shadow-md">
+                اضغط على أي نقطة لعرض التفاصيل
               </div>
             </>
           )}
         </div>
 
         {/* Sidebar list of places with quick search (1 Col) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 flex flex-col h-[450px] sm:h-[550px]">
+        <div className={`bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col h-[400px] sm:h-[500px] lg:h-[550px] ${
+          mobileViewMode === 'map' ? 'hidden lg:flex' : 'flex'
+        }`}>
           
           {/* Quick Search */}
           <div className="relative mb-3">
