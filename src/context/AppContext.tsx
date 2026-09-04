@@ -80,6 +80,23 @@ interface AppContextType {
   t: typeof TRANSLATIONS['ar'];
 }
 
+const VALID_TABS: NavTab[] = [
+  'home', 'jobs', 'housing', 'recruitment', 'safety', 
+  'starter-plan', 'map', 'algeria-guide', 'more', 'admin'
+];
+
+const getInitialTab = (): NavTab => {
+  try {
+    const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
+    if (VALID_TABS.includes(rawHash as NavTab)) {
+      return rawHash as NavTab;
+    }
+  } catch {
+    // fallback to home
+  }
+  return 'home';
+};
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -88,7 +105,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (saved as Language) || 'ar';
   });
 
-  const [activeTab, setActiveTabState] = useState<NavTab>('home');
+  const [activeTab, setActiveTabState] = useState<NavTab>(getInitialTab);
   const [searchQuery, setSearchQuery] = useState('');
   
   const [jobs, setJobs] = useState<Job[]>(() => {
@@ -181,9 +198,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     safeSetItem('dubai_start_saved_housing', JSON.stringify(savedHousingIds));
   }, [savedHousingIds]);
 
+  useEffect(() => {
+    const onHashChange = () => {
+      try {
+        const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
+        if (VALID_TABS.includes(rawHash as NavTab)) {
+          setActiveTabState(rawHash as NavTab);
+        } else if (!window.location.hash || window.location.hash === '#') {
+          setActiveTabState('home');
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   // Tab management & window scroll reset
   const setActiveTab = (tab: NavTab) => {
     setActiveTabState(tab);
+    try {
+      if (tab === 'home') {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      } else {
+        window.location.hash = tab;
+      }
+    } catch {
+      // ignore
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

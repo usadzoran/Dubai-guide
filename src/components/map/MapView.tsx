@@ -19,6 +19,8 @@ export const MapView: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
   const [activePlace, setActivePlace] = useState<MapPoint | null>(null);
+  const [mapError, setMapError] = useState<boolean>(false);
+  const [retryKey, setRetryKey] = useState<number>(0);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -41,108 +43,140 @@ export const MapView: React.FC = () => {
     return true;
   });
 
-  // Initialize Leaflet Map
+  // Initialize Leaflet Map safely
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    setMapError(false);
 
-    if (!mapInstanceRef.current) {
-      // Create Dubai centered map
-      const map = L.map(mapContainerRef.current, {
-        center: [25.22, 55.30],
-        zoom: 11,
-        scrollWheelZoom: true,
-      });
+    try {
+      // Fix default icon path issues in Leaflet
+      try {
+        delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        });
+      } catch (iconErr) {
+        console.warn('Leaflet icon config notice:', iconErr);
+      }
 
-      // Standard OSM tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 18,
-      }).addTo(map);
+      if (!mapInstanceRef.current) {
+        // Create Dubai centered map
+        const map = L.map(mapContainerRef.current, {
+          center: [25.22, 55.30],
+          zoom: 11,
+          scrollWheelZoom: true,
+        });
 
-      mapInstanceRef.current = map;
+        // Standard OSM tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+          maxZoom: 18,
+        }).addTo(map);
+
+        mapInstanceRef.current = map;
+      }
+    } catch (err) {
+      console.error('Failed to initialize Leaflet map:', err);
+      setMapError(true);
     }
 
     return () => {
-      // Clean up on component unmount
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+      // Clean up on component unmount safely
+      try {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      } catch (cleanupErr) {
+        console.warn('Leaflet cleanup notice:', cleanupErr);
       }
     };
-  }, []);
+  }, [retryKey]);
 
-  // Update Markers when filtered places change
+  // Update Markers when filtered places change safely
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map) return;
+    if (!map || mapError) return;
 
-    // Clear old markers
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
-
-    // Helper to get marker badge based on category
-    const getCategoryBadge = (cat: string) => {
-      switch (cat) {
-        case 'metro': return '🚇';
-        case 'recruitment': return '🏢';
-        case 'housing': return '🛏️';
-        case 'service': return '🏛️';
-        default: return '📍';
-      }
-    };
-
-    filteredPlaces.forEach((place) => {
-      const emoji = getCategoryBadge(place.category);
-      
-      const customIcon = L.divIcon({
-        className: 'custom-leaflet-marker',
-        html: `<div style="
-          background: #0f172a;
-          border: 2px solid #f59e0b;
-          border-radius: 9999px;
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 16px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-          cursor: pointer;
-        ">${emoji}</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
+    try {
+      // Clear old markers
+      markersRef.current.forEach((m) => {
+        try {
+          m.remove();
+        } catch {
+          // ignore
+        }
       });
+      markersRef.current = [];
 
-      const [lat, lng] = place.coordinates;
-      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+      // Helper to get marker badge based on category
+      const getCategoryBadge = (cat: string) => {
+        switch (cat) {
+          case 'metro': return '🚇';
+          case 'recruitment': return '🏢';
+          case 'housing': return '🛏️';
+          case 'service': return '🏛️';
+          default: return '📍';
+        }
+      };
 
-      const popupContent = `
-        <div style="font-family: sans-serif; direction: rtl; text-align: right; min-width: 180px; color: #0f172a;">
-          <h4 style="margin: 0 0 4px 0; font-weight: bold; font-size: 14px;">${place.name}</h4>
-          <p style="margin: 0 0 4px 0; font-size: 12px; color: #475569;">${place.area || place.address}</p>
-          <p style="margin: 0 0 8px 0; font-size: 11px; color: #64748b;">${place.description || place.extraInfo || ''}</p>
-          <a href="${place.googleMapsUrl || `https://maps.google.com/?q=${lat},${lng}`}" target="_blank" style="
-            display: inline-block;
+      filteredPlaces.forEach((place) => {
+        const emoji = getCategoryBadge(place.category);
+        
+        const customIcon = L.divIcon({
+          className: 'custom-leaflet-marker',
+          html: `<div style="
             background: #0f172a;
-            color: #f59e0b;
-            font-size: 11px;
-            font-weight: bold;
-            padding: 4px 8px;
-            border-radius: 6px;
-            text-decoration: none;
-          ">الاتجاهات في خرائط Google ↗</a>
-        </div>
-      `;
+            border: 2px solid #f59e0b;
+            border-radius: 9999px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+          ">${emoji}</div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
 
-      marker.bindPopup(popupContent);
+        const [lat, lng] = place.coordinates;
+        const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
 
-      marker.on('click', () => {
-        setActivePlace(place);
+        const popupContent = `
+          <div style="font-family: sans-serif; direction: rtl; text-align: right; min-width: 180px; color: #0f172a;">
+            <h4 style="margin: 0 0 4px 0; font-weight: bold; font-size: 14px;">${place.name}</h4>
+            <p style="margin: 0 0 4px 0; font-size: 12px; color: #475569;">${place.area || place.address}</p>
+            <p style="margin: 0 0 8px 0; font-size: 11px; color: #64748b;">${place.description || place.extraInfo || ''}</p>
+            <a href="${place.googleMapsUrl || `https://maps.google.com/?q=${lat},${lng}`}" target="_blank" style="
+              display: inline-block;
+              background: #0f172a;
+              color: #f59e0b;
+              font-size: 11px;
+              font-weight: bold;
+              padding: 4px 8px;
+              border-radius: 6px;
+              text-decoration: none;
+            ">الاتجاهات في خرائط Google ↗</a>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent);
+
+        marker.on('click', () => {
+          setActivePlace(place);
+        });
+
+        markersRef.current.push(marker);
       });
-
-      markersRef.current.push(marker);
-    });
-  }, [filteredPlaces]);
+    } catch (err) {
+      console.error('Error updating markers:', err);
+    }
+  }, [filteredPlaces, mapError]);
 
   // Center map on a specific place
   const handleSelectPlace = (place: MapPoint) => {
@@ -201,17 +235,37 @@ export const MapView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Interactive Leaflet Map Container (2 Cols) */}
-        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative">
-          <div 
-            ref={mapContainerRef} 
-            className="w-full h-[450px] sm:h-[550px] z-10"
-            id="dubai-interactive-map"
-          />
+        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col justify-center">
+          {mapError ? (
+            <div className="w-full h-[450px] sm:h-[550px] flex flex-col items-center justify-center p-6 text-center bg-slate-950/80">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-3">
+                <MapPin className="w-7 h-7" />
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-white mb-2">تعذر تحميل الخريطة حاليًا</h3>
+              <p className="text-xs sm:text-sm text-slate-400 max-w-md mb-5 leading-relaxed">
+                يمكنك الاستمرار في استعراض جميع الأماكن والمحطات من القائمة الجانبية أو الانتقال مباشرة لمواقعها في خرائط Google.
+              </p>
+              <button
+                onClick={() => setRetryKey((k) => k + 1)}
+                className="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold rounded-xl transition-colors shadow-md"
+              >
+                إعادة المحاولة
+              </button>
+            </div>
+          ) : (
+            <>
+              <div 
+                ref={mapContainerRef} 
+                className="w-full h-[450px] sm:h-[550px] z-10"
+                id="dubai-interactive-map"
+              />
 
-          {/* Map Overlay helper badge */}
-          <div className="absolute top-3 end-3 z-20 bg-slate-950/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl text-[11px] font-semibold text-amber-400 shadow-md">
-            اضغط على أي نقطة لعرض التفاصيل والاتجاهات
-          </div>
+              {/* Map Overlay helper badge */}
+              <div className="absolute top-3 end-3 z-20 bg-slate-950/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl text-[11px] font-semibold text-amber-400 shadow-md">
+                اضغط على أي نقطة لعرض التفاصيل والاتجاهات
+              </div>
+            </>
+          )}
         </div>
 
         {/* Sidebar list of places with quick search (1 Col) */}
