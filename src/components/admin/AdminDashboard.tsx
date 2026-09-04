@@ -20,11 +20,13 @@ import {
   KeyRound,
   Download,
   LogOut,
-  Sparkles
+  Sparkles,
+  Database
 } from 'lucide-react';
 import { Job, HousingListing, RecruitmentOffice, UserReport } from '../../types';
 import { AdminVisitorsSection } from './AdminVisitorsSection';
 import { AdminAdsSection } from './AdminAdsSection';
+import { AdminSupabaseSection } from './AdminSupabaseSection';
 
 export const AdminDashboard: React.FC = () => {
   const { 
@@ -47,7 +49,7 @@ export const AdminDashboard: React.FC = () => {
   } = useApp();
 
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'visitors' | 'ads' | 'jobs' | 'housing' | 'offices' | 'reports' | 'security'
+    'visitors' | 'ads' | 'jobs' | 'housing' | 'offices' | 'reports' | 'security' | 'supabase'
   >('visitors');
 
   // Job Form State
@@ -334,6 +336,19 @@ export const AdminDashboard: React.FC = () => {
         >
           <KeyRound className="w-4 h-4" />
           <span>أمان المشرف</span>
+        </button>
+
+        {/* Supabase Database Tab */}
+        <button
+          onClick={() => setActiveAdminTab('supabase')}
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
+            activeAdminTab === 'supabase'
+              ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+              : 'text-emerald-400 hover:text-emerald-300'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          <span>قاعدة بيانات Supabase</span>
         </button>
 
       </div>
@@ -661,6 +676,11 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* TAB: SUPABASE DATABASE INTEGRATION */}
+      {activeAdminTab === 'supabase' && (
+        <AdminSupabaseSection />
       )}
 
       {/* Job Modal */}

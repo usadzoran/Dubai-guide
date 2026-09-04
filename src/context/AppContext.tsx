@@ -7,6 +7,23 @@ import { INITIAL_ADS } from '../data/ads';
 import { TRANSLATIONS } from '../data/translations';
 import { safeGetItem, safeSetItem, safeRemoveItem, safeParseJSON } from '../utils/storage';
 import { getStoredVisitorStats, saveVisitorStats, trackPageVisit } from '../utils/analytics';
+import { 
+  fetchJobsFromSupabase, 
+  fetchHousingFromSupabase, 
+  fetchOfficesFromSupabase, 
+  fetchAdsFromSupabase, 
+  fetchReportsFromSupabase,
+  upsertJobInSupabase,
+  deleteJobFromSupabase,
+  upsertHousingInSupabase,
+  deleteHousingFromSupabase,
+  upsertOfficeInSupabase,
+  deleteOfficeFromSupabase,
+  upsertAdInSupabase,
+  deleteAdFromSupabase,
+  insertReportInSupabase,
+  updateReportStatusInSupabase
+} from '../lib/supabase';
 
 export type NavTab = 
   | 'home' 
@@ -224,6 +241,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     safeSetItem('dubai_start_jobs', JSON.stringify(jobs));
   }, [jobs]);
 
+  // Initial Sync from Supabase on Mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadFromSupabase = async () => {
+      try {
+        const [remoteJobs, remoteHousing, remoteOffices, remoteAds, remoteReports] = await Promise.all([
+          fetchJobsFromSupabase(),
+          fetchHousingFromSupabase(),
+          fetchOfficesFromSupabase(),
+          fetchAdsFromSupabase(),
+          fetchReportsFromSupabase()
+        ]);
+
+        if (!isMounted) return;
+        if (remoteJobs && remoteJobs.length > 0) setJobs(remoteJobs);
+        if (remoteHousing && remoteHousing.length > 0) setHousing(remoteHousing);
+        if (remoteOffices && remoteOffices.length > 0) setRecruitmentOffices(remoteOffices);
+        if (remoteAds && remoteAds.length > 0) setAds(remoteAds);
+        if (remoteReports && remoteReports.length > 0) setReports(remoteReports);
+      } catch (err) {
+        console.info('Supabase initial fetch info:', err);
+      }
+    };
+    loadFromSupabase();
+    return () => { isMounted = false; };
+  }, []);
+
   useEffect(() => {
     safeSetItem('dubai_start_housing', JSON.stringify(housing));
   }, [housing]);
@@ -366,18 +410,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString().split('T')[0]
     };
     setAds(prev => [newAd, ...prev]);
+    upsertAdInSupabase(newAd);
   };
 
   const updateAd = (id: string, updates: Partial<AdItem>) => {
-    setAds(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
+    setAds(prev => {
+      const updated = prev.map(a => a.id === id ? { ...a, ...updates } : a);
+      const target = updated.find(a => a.id === id);
+      if (target) upsertAdInSupabase(target);
+      return updated;
+    });
   };
 
   const deleteAd = (id: string) => {
     setAds(prev => prev.filter(a => a.id !== id));
+    deleteAdFromSupabase(id);
   };
 
   const toggleAdStatus = (id: string) => {
-    setAds(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
+    setAds(prev => {
+      const updated = prev.map(a => a.id === id ? { ...a, active: !a.active } : a);
+      const target = updated.find(a => a.id === id);
+      if (target) upsertAdInSupabase(target);
+      return updated;
+    });
   };
 
   const recordAdClick = (id: string) => {
@@ -454,6 +510,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'new'
     };
     setReports(prev => [newReport, ...prev]);
+    insertReportInSupabase(newReport);
     closeReportModal();
   };
 
@@ -472,6 +529,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'new'
     };
     setReports(prev => [newReport, ...prev]);
+    insertReportInSupabase(newReport);
   };
 
   // CRUD for Jobs
@@ -481,14 +539,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: 'job-' + Date.now()
     };
     setJobs(prev => [newJob, ...prev]);
+    upsertJobInSupabase(newJob);
   };
 
   const updateJob = (id: string, updates: Partial<Job>) => {
-    setJobs(prev => prev.map(job => job.id === id ? { ...job, ...updates } : job));
+    setJobs(prev => {
+      const updated = prev.map(job => job.id === id ? { ...job, ...updates } : job);
+      const target = updated.find(j => j.id === id);
+      if (target) upsertJobInSupabase(target);
+      return updated;
+    });
   };
 
   const deleteJob = (id: string) => {
     setJobs(prev => prev.filter(job => job.id !== id));
+    deleteJobFromSupabase(id);
   };
 
   // CRUD for Housing
@@ -499,14 +564,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       datePosted: 'اليوم'
     };
     setHousing(prev => [newH, ...prev]);
+    upsertHousingInSupabase(newH);
   };
 
   const updateHousing = (id: string, updates: Partial<HousingListing>) => {
-    setHousing(prev => prev.map(h => h.id === id ? { ...h, ...updates } : h));
+    setHousing(prev => {
+      const updated = prev.map(h => h.id === id ? { ...h, ...updates } : h);
+      const target = updated.find(h => h.id === id);
+      if (target) upsertHousingInSupabase(target);
+      return updated;
+    });
   };
 
   const deleteHousing = (id: string) => {
     setHousing(prev => prev.filter(h => h.id !== id));
+    deleteHousingFromSupabase(id);
   };
 
   // CRUD for Offices
@@ -516,18 +588,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: 'office-' + Date.now()
     };
     setRecruitmentOffices(prev => [newO, ...prev]);
+    upsertOfficeInSupabase(newO);
   };
 
   const updateOffice = (id: string, updates: Partial<RecruitmentOffice>) => {
-    setRecruitmentOffices(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+    setRecruitmentOffices(prev => {
+      const updated = prev.map(o => o.id === id ? { ...o, ...updates } : o);
+      const target = updated.find(o => o.id === id);
+      if (target) upsertOfficeInSupabase(target);
+      return updated;
+    });
   };
 
   const deleteOffice = (id: string) => {
     setRecruitmentOffices(prev => prev.filter(o => o.id !== id));
+    deleteOfficeFromSupabase(id);
   };
 
   const updateReportStatus = (id: string, status: 'new' | 'reviewed' | 'dismissed') => {
     setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    updateReportStatusInSupabase(id, status);
   };
 
   const resetToDefaultData = () => {

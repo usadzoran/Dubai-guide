@@ -6,18 +6,16 @@ export const AdFloatingBadge: React.FC = () => {
   const { ads, recordAdClick, recordAdImpression, activeTab } = useApp();
   const [dismissed, setDismissed] = useState(false);
 
-  // Don't show inside admin
-  if (activeTab === 'admin') return null;
-
   const floatingAd = ads.find(a => a.placement === 'floating_badge' && a.active);
 
   useEffect(() => {
-    if (floatingAd && !dismissed) {
+    if (floatingAd && !dismissed && activeTab !== 'admin') {
       recordAdImpression(floatingAd.id);
     }
-  }, [floatingAd?.id, dismissed]);
+  }, [floatingAd?.id, dismissed, activeTab]);
 
-  if (!floatingAd || dismissed) return null;
+  // Don't show inside admin or if no ad or dismissed
+  if (activeTab === 'admin' || !floatingAd || dismissed) return null;
 
   const handleClick = () => {
     recordAdClick(floatingAd.id);
