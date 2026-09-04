@@ -33,18 +33,23 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private handleGoHome = () => {
     this.setState({ hasError: false, error: null });
-    const baseUrl = import.meta.env.BASE_URL || '/';
-    window.location.href = baseUrl;
+    try {
+      window.location.hash = '';
+      window.location.reload();
+    } catch {
+      window.location.reload();
+    }
   };
 
   private handleReset = () => {
     try {
       localStorage.clear();
+      window.location.hash = '';
+      window.location.reload();
     } catch (e) {
       console.error(e);
+      window.location.reload();
     }
-    const baseUrl = import.meta.env.BASE_URL || '/';
-    window.location.href = baseUrl;
   };
 
   public render() {
