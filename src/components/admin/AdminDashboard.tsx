@@ -21,12 +21,16 @@ import {
   Download,
   LogOut,
   Sparkles,
-  Database
+  Database,
+  Users,
+  UserCheck,
+  Crown
 } from 'lucide-react';
 import { Job, HousingListing, RecruitmentOffice, UserReport } from '../../types';
 import { AdminVisitorsSection } from './AdminVisitorsSection';
 import { AdminAdsSection } from './AdminAdsSection';
 import { AdminSupabaseSection } from './AdminSupabaseSection';
+import { AdminModeratorsSection } from './AdminModeratorsSection';
 
 export const AdminDashboard: React.FC = () => {
   const { 
@@ -45,12 +49,31 @@ export const AdminDashboard: React.FC = () => {
     visitorStats,
     adminPassword,
     updateAdminPassword,
-    adminLogout
+    adminLogout,
+    currentAdminSession,
+    moderators,
+    canAccess
   } = useApp();
 
+  const isSuperAdmin = !currentAdminSession || currentAdminSession.role === 'super_admin';
+  const canViewAnalytics = canAccess('viewAnalytics');
+  const canManageAds = canAccess('manageAds');
+  const canManageJobs = canAccess('manageJobs');
+  const canManageHousing = canAccess('manageHousing');
+  const canManageOffices = canAccess('manageOffices');
+  const canManageReports = canAccess('manageReports');
+
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'visitors' | 'ads' | 'jobs' | 'housing' | 'offices' | 'reports' | 'security' | 'supabase'
-  >('visitors');
+    'visitors' | 'ads' | 'jobs' | 'housing' | 'offices' | 'reports' | 'security' | 'supabase' | 'moderators'
+  >(() => {
+    if (isSuperAdmin || canViewAnalytics) return 'visitors';
+    if (canManageJobs) return 'jobs';
+    if (canManageHousing) return 'housing';
+    if (canManageAds) return 'ads';
+    if (canManageOffices) return 'offices';
+    if (canManageReports) return 'reports';
+    return 'security';
+  });
 
   // Job Form State
   const [showJobModal, setShowJobModal] = useState(false);
@@ -181,40 +204,59 @@ export const AdminDashboard: React.FC = () => {
       {/* Admin Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-800">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/15 text-amber-400 border border-amber-400/30 text-xs font-bold mb-2">
-            <Lock className="w-3.5 h-3.5" />
-            <span>لوحة التحكم الإدارية السرية (Admin Dashboard)</span>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/15 text-amber-400 border border-amber-400/30 text-xs font-bold">
+              <Lock className="w-3.5 h-3.5" />
+              <span>لوحة التحكم الإدارية (Admin Dashboard)</span>
+            </div>
+            {isSuperAdmin ? (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-black">
+                <Crown className="w-3.5 h-3.5 text-amber-400" />
+                <span>المدير العام (Super Admin)</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-black">
+                <UserCheck className="w-3.5 h-3.5 text-blue-400" />
+                <span>مشرف فرعي: {currentAdminSession?.name} (@{currentAdminSession?.username})</span>
+              </div>
+            )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">
             مركز القيادة والبيانات DubaiStart
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-1">
-            متابعة زوار الموقع لحظياً، إدارة الإعلانات في مختلف المواضع، وتحديث الوظائف والسكن.
+            {isSuperAdmin 
+              ? 'صلاحية كاملة: إدارة المشرفين، تتبع الزوار، مراجعة الإعلانات، وإدارة كافة أقسام المنصة.'
+              : `أهلاً بك يا ${currentAdminSession?.name}! يمكنك إدارة الأقسام المصرح لك بها أدناه.`}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={handleExportBackup}
-            className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            title="تصدير نسخة احتياطية"
-          >
-            <Download className="w-3.5 h-3.5 text-sky-400" />
-            <span className="hidden sm:inline">نسخة احتياطية</span>
-          </button>
+          {isSuperAdmin && (
+            <>
+              <button
+                onClick={handleExportBackup}
+                className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                title="تصدير نسخة احتياطية"
+              >
+                <Download className="w-3.5 h-3.5 text-sky-400" />
+                <span className="hidden sm:inline">نسخة احتياطية</span>
+              </button>
 
-          <button
-            onClick={() => {
-              if (window.confirm('هل أنت متأكد من رغبتك في استعادة البيانات الأصلية الافتراضية؟')) {
-                resetToDefaultData();
-                showNotification('تمت إعادة ضبط كافة البيانات إلى الحالة الافتراضية بنجاح!');
-              }
-            }}
-            className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-            <span>إعادة ضبط</span>
-          </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('هل أنت متأكد من رغبتك في استعادة البيانات الأصلية الافتراضية؟')) {
+                    resetToDefaultData();
+                    showNotification('تمت إعادة ضبط كافة البيانات إلى الحالة الافتراضية بنجاح!');
+                  }
+                }}
+                className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                <span>إعادة ضبط</span>
+              </button>
+            </>
+          )}
 
           <button
             onClick={() => setActiveTab('home')}
@@ -244,112 +286,141 @@ export const AdminDashboard: React.FC = () => {
       {/* Admin Navigation Tabs */}
       <div className="flex flex-wrap gap-2 mb-8 bg-slate-900/90 p-1.5 sm:p-2 rounded-2xl border border-slate-800 w-full overflow-x-auto">
         
+        {/* Moderators Tab - Super Admin Only */}
+        {isSuperAdmin && (
+          <button
+            onClick={() => setActiveAdminTab('moderators')}
+            className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
+              activeAdminTab === 'moderators'
+                ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                : 'text-amber-400/90 hover:text-amber-300 bg-amber-400/10 border border-amber-400/20'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>المشرفين (Modérateurs) ({moderators.length})</span>
+          </button>
+        )}
+
         {/* Visitors Stats Tab */}
-        <button
-          onClick={() => setActiveAdminTab('visitors')}
-          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
-            activeAdminTab === 'visitors'
-              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Activity className="w-4 h-4" />
-          <span>إحصائيات وزوار الموقع ({visitorStats.totalVisits.toLocaleString()})</span>
-        </button>
+        {canViewAnalytics && (
+          <button
+            onClick={() => setActiveAdminTab('visitors')}
+            className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
+              activeAdminTab === 'visitors'
+                ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            <span>إحصائيات وزوار الموقع ({visitorStats.totalVisits.toLocaleString()})</span>
+          </button>
+        )}
 
         {/* Ads Manager Tab */}
-        <button
-          onClick={() => setActiveAdminTab('ads')}
-          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
-            activeAdminTab === 'ads'
-              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>قسم الإعلانات ({activeAdsCount} نشط)</span>
-        </button>
+        {canManageAds && (
+          <button
+            onClick={() => setActiveAdminTab('ads')}
+            className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
+              activeAdminTab === 'ads'
+                ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>قسم الإعلانات ({activeAdsCount} نشط)</span>
+          </button>
+        )}
 
         {/* Jobs Tab */}
-        <button
-          onClick={() => setActiveAdminTab('jobs')}
-          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
-            activeAdminTab === 'jobs'
-              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Briefcase className="w-4 h-4" />
-          <span>إدارة الوظائف ({jobs.length})</span>
-        </button>
+        {canManageJobs && (
+          <button
+            onClick={() => setActiveAdminTab('jobs')}
+            className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
+              activeAdminTab === 'jobs'
+                ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Briefcase className="w-4 h-4" />
+            <span>إدارة الوظائف ({jobs.length})</span>
+          </button>
+        )}
 
         {/* Housing Tab */}
-        <button
-          onClick={() => setActiveAdminTab('housing')}
-          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
-            activeAdminTab === 'housing'
-              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <BedDouble className="w-4 h-4" />
-          <span>إدارة السكن ({housing.length})</span>
-        </button>
+        {canManageHousing && (
+          <button
+            onClick={() => setActiveAdminTab('housing')}
+            className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
+              activeAdminTab === 'housing'
+                ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <BedDouble className="w-4 h-4" />
+            <span>إدارة السكن ({housing.length})</span>
+          </button>
+        )}
 
         {/* Offices Tab */}
-        <button
-          onClick={() => setActiveAdminTab('offices')}
-          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
-            activeAdminTab === 'offices'
-              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>مكاتب التوظيف ({recruitmentOffices.length})</span>
-        </button>
+        {canManageOffices && (
+          <button
+            onClick={() => setActiveAdminTab('offices')}
+            className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
+              activeAdminTab === 'offices'
+                ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>مكاتب التوظيف ({recruitmentOffices.length})</span>
+          </button>
+        )}
 
         {/* Reports Tab */}
-        <button
-          onClick={() => setActiveAdminTab('reports')}
-          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
-            activeAdminTab === 'reports'
-              ? 'bg-amber-400 text-slate-950 shadow-md font-black'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Flag className="w-4 h-4 text-rose-400" />
-          <span>بلاغات الاحتيال ({reports.length})</span>
-          {pendingReportsCount > 0 && (
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-          )}
-        </button>
+        {canManageReports && (
+          <button
+            onClick={() => setActiveAdminTab('reports')}
+            className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
+              activeAdminTab === 'reports'
+                ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Flag className="w-4 h-4 text-rose-400" />
+            <span>بلاغات الاحتيال ({reports.length})</span>
+            {pendingReportsCount > 0 && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+            )}
+          </button>
+        )}
 
         {/* Security & Password Tab */}
         <button
           onClick={() => setActiveAdminTab('security')}
-          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
+          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
             activeAdminTab === 'security'
               ? 'bg-amber-400 text-slate-950 shadow-md font-black'
               : 'text-slate-400 hover:text-white'
           }`}
         >
           <KeyRound className="w-4 h-4" />
-          <span>أمان المشرف</span>
+          <span>{isSuperAdmin ? 'أمان المدير العام' : 'معلومات الحساب'}</span>
         </button>
 
-        {/* Supabase Database Tab */}
-        <button
-          onClick={() => setActiveAdminTab('supabase')}
-          className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 ${
-            activeAdminTab === 'supabase'
-              ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
-              : 'text-emerald-400 hover:text-emerald-300'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>قاعدة بيانات Supabase</span>
-        </button>
+        {/* Supabase Database Tab - Super Admin only */}
+        {isSuperAdmin && (
+          <button
+            onClick={() => setActiveAdminTab('supabase')}
+            className={`px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
+              activeAdminTab === 'supabase'
+                ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                : 'text-emerald-400 hover:text-emerald-300'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            <span>قاعدة بيانات Supabase</span>
+          </button>
+        )}
 
       </div>
 

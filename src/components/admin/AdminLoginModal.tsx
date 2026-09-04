@@ -1,20 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Lock, Eye, EyeOff, ShieldCheck, X, KeyRound, AlertCircle } from 'lucide-react';
+import { Lock, Eye, EyeOff, ShieldCheck, X, KeyRound, AlertCircle, User, Users } from 'lucide-react';
 
 export const AdminLoginModal: React.FC = () => {
   const { 
     isAdminLoginModalOpen, 
     closeAdminLoginModal, 
     adminLogin,
+    moderatorLogin,
     setActiveTab 
   } = useApp();
 
-  const [inputPassword, setInputPassword] = useState('');
+  const [mode, setMode] = useState<'moderator' | 'super_admin'>('moderator');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Auto-detect login parameters in hash on modal open
+  useEffect(() => {
+    if (isAdminLoginModalOpen) {
+      try {
+        const hash = window.location.hash;
+        if (hash.includes('user=')) {
+          const queryPart = hash.substring(hash.indexOf('?') + 1);
+          const params = new URLSearchParams(queryPart);
+          const u = params.get('user');
+          const k = params.get('key') || params.get('password');
+          if (u) setUsername(u);
+          if (k) setPassword(k);
+          setMode('moderator');
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [isAdminLoginModalOpen]);
 
   if (!isAdminLoginModalOpen) return null;
 
@@ -24,13 +47,32 @@ export const AdminLoginModal: React.FC = () => {
     setLoading(true);
 
     setTimeout(() => {
-      const success = adminLogin(inputPassword, rememberMe);
-      if (success) {
-        setInputPassword('');
-        closeAdminLoginModal();
-        setActiveTab('admin');
+      if (mode === 'super_admin') {
+        const success = adminLogin(password, rememberMe);
+        if (success) {
+          setPassword('');
+          closeAdminLoginModal();
+          setActiveTab('admin');
+        } else {
+          setError('رمز دخول المدير العام غير صحيح! الرمز الافتراضي هو: dubai2026');
+        }
       } else {
-        setError('رمز الدخول غير صحيح! الرمز الافتراضي هو: dubai2026');
+        // Moderator mode
+        if (!username.trim() || !password.trim()) {
+          setError('يرجى إدخال اسم المستخدم وكلمة المرور');
+          setLoading(false);
+          return;
+        }
+
+        const res = moderatorLogin(username, password, rememberMe);
+        if (res.success) {
+          setUsername('');
+          setPassword('');
+          closeAdminLoginModal();
+          setActiveTab('admin');
+        } else {
+          setError(res.message || 'بيانات الدخول غير صحيحة.');
+        }
       }
       setLoading(false);
     }, 200);
@@ -48,7 +90,7 @@ export const AdminLoginModal: React.FC = () => {
         {/* Close Button */}
         <button
           onClick={closeAdminLoginModal}
-          className="absolute top-4 end-4 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          className="absolute top-4 end-4 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
           aria-label="إغلاق"
         >
           <X className="w-5 h-5" />
@@ -61,47 +103,134 @@ export const AdminLoginModal: React.FC = () => {
           </div>
           <div>
             <h3 className="text-lg font-black text-white">
-              بوابة الإدارة والمشرفين 🔐
+              بوابة الدخول الإدارية 🔐
             </h3>
             <p className="text-xs text-slate-400">
-              واجهة سرية محمية للتحكم بالبيانات والإعلانات
+              تسجيل دخول المشرفين (Modérateurs) والمدير العام
             </p>
           </div>
         </div>
 
+        {/* Role Mode Selector Tabs */}
+        <div className="flex p-1 bg-slate-950 rounded-2xl border border-slate-800 mb-5">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('moderator');
+              setError(null);
+            }}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              mode === 'moderator'
+                ? 'bg-amber-400 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>مشرف (Modérateur)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode('super_admin');
+              setError(null);
+            }}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              mode === 'super_admin'
+                ? 'bg-amber-400 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>المدير العام (Super Admin)</span>
+          </button>
+        </div>
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-300 mb-2">
-              كلمة مرور المشرف (Admin Password)
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                autoFocus
-                required
-                value={inputPassword}
-                onChange={(e) => {
-                  setInputPassword(e.target.value);
-                  if (error) setError(null);
-                }}
-                placeholder="أدخل كلمة المرور..."
-                dir="ltr"
-                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-white text-sm focus:outline-none focus:border-amber-400 transition-colors tracking-wider"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute end-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-200 transition-colors"
-                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
+          {mode === 'moderator' ? (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  اسم المستخدم (Username)
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={username}
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    placeholder="مثال: ahmed_jobs"
+                    dir="ltr"
+                    className="w-full px-4 py-2.5 ps-10 bg-slate-950 border border-slate-800 rounded-2xl text-white text-xs font-mono focus:outline-none focus:border-amber-400 transition-colors"
+                  />
+                  <User className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                </div>
+              </div>
 
-          {/* Remember me checkbox */}
-          <div className="flex items-center justify-between text-xs text-slate-400">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  كلمة مرور المشرف (Password)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    placeholder="أدخل كلمة المرور الممنوحة لك..."
+                    dir="ltr"
+                    className="w-full px-4 py-2.5 pe-10 bg-slate-950 border border-slate-800 rounded-2xl text-white text-xs font-mono focus:outline-none focus:border-amber-400 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                كلمة مرور المدير العام (Master Password)
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  autoFocus
+                  required
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="أدخل كلمة مرور المدير العام..."
+                  dir="ltr"
+                  className="w-full px-4 py-2.5 pe-10 bg-slate-950 border border-slate-800 rounded-2xl text-white text-xs focus:outline-none focus:border-amber-400 transition-colors tracking-wider"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Remember me */}
+          <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -109,9 +238,11 @@ export const AdminLoginModal: React.FC = () => {
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className="rounded bg-slate-950 border-slate-800 text-amber-400 focus:ring-0 w-4 h-4"
               />
-              <span>تذكر الجلسة على هذا المتصفح</span>
+              <span>تذكر الجلسة</span>
             </label>
-            <span className="text-[11px] text-amber-400/80 font-mono">الافتراضي: dubai2026</span>
+            {mode === 'super_admin' && (
+              <span className="text-[11px] text-amber-400/80 font-mono">الافتراضي: dubai2026</span>
+            )}
           </div>
 
           {error && (
@@ -124,11 +255,11 @@ export const AdminLoginModal: React.FC = () => {
           <div className="pt-2">
             <button
               type="submit"
-              disabled={loading || !inputPassword}
-              className="w-full py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all active:scale-98"
+              disabled={loading || !password}
+              className="w-full py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all active:scale-98 cursor-pointer"
             >
               <KeyRound className="w-4 h-4" />
-              <span>{loading ? 'جارٍ التحقق...' : 'دخول لوحة التحكم'}</span>
+              <span>{loading ? 'جارٍ التحقق...' : (mode === 'moderator' ? 'دخول المشرف (Modérateur)' : 'دخول المدير العام')}</span>
             </button>
           </div>
 
@@ -136,10 +267,10 @@ export const AdminLoginModal: React.FC = () => {
           <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
             <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>طرق الدخول السريع للمشرف:</span>
+              <span>معلومات الدخول:</span>
             </div>
-            <p>1. الضغط على اختصار لوحة المفاتيح <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700">Ctrl + Shift + A</kbd> في أي وقت.</p>
-            <p>2. النقر 5 مرات متتالية على عبارة حقوق النشر أسفل الصفحة في الفوتر.</p>
+            <p>• إذا وصلك رابط تسجيل دخول من المدير العام، اضغط عليه ليتم نقلك وتسجيلك تلقائياً.</p>
+            <p>• يمكنك الضغط على <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 font-mono">Ctrl+Shift+A</kbd> في أي صفحة لفتح هذه النافذة.</p>
           </div>
         </form>
 

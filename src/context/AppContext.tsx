@@ -1,9 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Job, HousingListing, RecruitmentOffice, UserReport, Language, ReportType, AdItem, VisitorStats } from '../types';
+import { 
+  Job, 
+  HousingListing, 
+  RecruitmentOffice, 
+  UserReport, 
+  Language, 
+  ReportType, 
+  AdItem, 
+  VisitorStats,
+  Moderator,
+  ModeratorPermissions,
+  AdminSession
+} from '../types';
 import { INITIAL_JOBS } from '../data/jobs';
 import { INITIAL_HOUSING } from '../data/housing';
 import { INITIAL_RECRUITMENT_OFFICES } from '../data/recruitment';
 import { INITIAL_ADS } from '../data/ads';
+import { INITIAL_MODERATORS } from '../data/moderators';
 import { TRANSLATIONS } from '../data/translations';
 import { safeGetItem, safeSetItem, safeRemoveItem, safeParseJSON } from '../utils/storage';
 import { getStoredVisitorStats, saveVisitorStats, trackPageVisit } from '../utils/analytics';
@@ -97,12 +110,20 @@ interface AppContextType {
   // Admin Auth & Secret Access
   isAdminAuthenticated: boolean;
   adminLogin: (password: string, remember?: boolean) => boolean;
+  moderatorLogin: (username: string, pass: string, remember?: boolean) => { success: boolean; message?: string };
   adminLogout: () => void;
   adminPassword: string;
   updateAdminPassword: (newPass: string) => void;
   isAdminLoginModalOpen: boolean;
   openAdminLoginModal: () => void;
   closeAdminLoginModal: () => void;
+  currentAdminSession: AdminSession | null;
+  moderators: Moderator[];
+  addModerator: (mod: Omit<Moderator, 'id' | 'createdAt'>) => void;
+  updateModerator: (id: string, updates: Partial<Moderator>) => void;
+  deleteModerator: (id: string) => void;
+  toggleModeratorActive: (id: string) => void;
+  canAccess: (permission: keyof ModeratorPermissions) => boolean;
 
   // Admin CRUD
   addJob: (job: Omit<Job, 'id'>) => void;
@@ -215,6 +236,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return safeGetItem('dubai_start_admin_password') || 'dubai2026';
   });
 
+  // Moderators State
+  const [moderators, setModerators] = useState<Moderator[]>(() => {
+    const saved = safeGetItem('dubai_start_moderators');
+    const parsed = safeParseJSON<Moderator[]>(saved, []);
+    return parsed.length > 0 ? parsed : INITIAL_MODERATORS;
+  });
+
+  // Current Admin / Moderator Session
+  const [currentAdminSession, setCurrentAdminSession] = useState<AdminSession | null>(() => {
+    const saved = safeGetItem('dubai_start_admin_session');
+    const parsed = safeParseJSON<AdminSession | null>(saved, null);
+    if (parsed) return parsed;
+    if (safeGetItem('dubai_start_admin_token') === 'true') {
+      return {
+        role: 'super_admin',
+        username: 'admin',
+        name: 'المدير العام (Super Admin)',
+        permissions: {
+          manageJobs: true,
+          manageHousing: true,
+          manageOffices: true,
+          manageAds: true,
+          manageReports: true,
+          viewAnalytics: true,
+        }
+      };
+    }
+    return null;
+  });
+
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
 
   // Report Modal state
@@ -292,6 +343,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     safeSetItem('dubai_start_saved_housing', JSON.stringify(savedHousingIds));
   }, [savedHousingIds]);
 
+  useEffect(() => {
+    safeSetItem('dubai_start_moderators', JSON.stringify(moderators));
+  }, [moderators]);
+
+  useEffect(() => {
+    if (currentAdminSession) {
+      safeSetItem('dubai_start_admin_session', JSON.stringify(currentAdminSession));
+      safeSetItem('dubai_start_admin_token', 'true');
+    } else {
+      safeRemoveItem('dubai_start_admin_session');
+      safeRemoveItem('dubai_start_admin_token');
+    }
+  }, [currentAdminSession]);
+
   // Keyboard shortcut listener for hidden Admin Access: Ctrl+Shift+A or Cmd+Shift+A
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -309,12 +374,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAdminAuthenticated]);
 
-  // Hash navigation listener with secret admin handling
+  // Hash navigation listener with secret admin and magic link handling
   useEffect(() => {
     const onHashChange = () => {
       try {
-        const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
-        if (rawHash === 'admin' || rawHash === 'admin-secret') {
+        const fullHash = window.location.hash;
+
+        // Check for magic link login: #mod-login?user=...&key=...
+        if (fullHash.includes('user=') && (fullHash.includes('key=') || fullHash.includes('password='))) {
+          const queryPart = fullHash.substring(fullHash.indexOf('?') + 1);
+          const params = new URLSearchParams(queryPart);
+          const user = params.get('user');
+          const key = params.get('key') || params.get('password');
+          if (user && key) {
+            const res = moderatorLogin(user, key, true);
+            if (res.success) {
+              history.replaceState(null, '', window.location.pathname + '#admin');
+              setActiveTabState('admin');
+              return;
+            }
+          }
+        }
+
+        const rawHash = fullHash.replace(/^#\/?/, '').split('?')[0].trim();
+        if (rawHash === 'admin' || rawHash === 'admin-secret' || rawHash === 'mod-login') {
           if (isAdminAuthenticated) {
             setActiveTabState('admin');
           } else {
@@ -339,12 +422,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     window.addEventListener('hashchange', onHashChange);
-    // Initial track on load
-    const updated = trackPageVisit(activeTab);
-    setVisitorStats(updated);
+    // Initial check on load
+    onHashChange();
 
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, [isAdminAuthenticated]);
+  }, [isAdminAuthenticated, moderators]);
 
   // Tab management & window scroll reset
   const setActiveTab = (tab: NavTab) => {
@@ -375,18 +457,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Admin Authentication methods
   const adminLogin = (password: string, remember: boolean = true): boolean => {
     if (password === adminPassword || password === 'dubai2026' || password === 'admin123') {
+      const session: AdminSession = {
+        role: 'super_admin',
+        username: 'admin',
+        name: 'المدير العام (Super Admin)',
+        permissions: {
+          manageJobs: true,
+          manageHousing: true,
+          manageOffices: true,
+          manageAds: true,
+          manageReports: true,
+          viewAnalytics: true,
+        }
+      };
+      setCurrentAdminSession(session);
       setIsAdminAuthenticated(true);
       if (remember) {
         safeSetItem('dubai_start_admin_token', 'true');
+        safeSetItem('dubai_start_admin_session', JSON.stringify(session));
       }
       return true;
     }
     return false;
   };
 
+  const moderatorLogin = (user: string, pass: string, remember: boolean = true): { success: boolean; message?: string } => {
+    const cleanUser = user.trim().toLowerCase();
+    const cleanPass = pass.trim();
+    const target = moderators.find(m => m.username.toLowerCase() === cleanUser);
+    if (!target) {
+      return { success: false, message: 'اسم المستخدم غير مسجل كـ modérateur في النظام.' };
+    }
+    if (!target.active) {
+      return { success: false, message: 'حساب المشرف هذا معطل حالياً من قبل الإدارة.' };
+    }
+    if (target.password !== cleanPass) {
+      return { success: false, message: 'كلمة المرور غير صحيحة.' };
+    }
+
+    const nowStr = new Date().toLocaleString('ar-AE');
+    setModerators(prev => prev.map(m => m.id === target.id ? { ...m, lastLogin: nowStr } : m));
+
+    const session: AdminSession = {
+      role: 'moderator',
+      moderatorId: target.id,
+      username: target.username,
+      name: target.name,
+      permissions: target.permissions
+    };
+    setCurrentAdminSession(session);
+    setIsAdminAuthenticated(true);
+    if (remember) {
+      safeSetItem('dubai_start_admin_token', 'true');
+      safeSetItem('dubai_start_admin_session', JSON.stringify(session));
+    }
+    return { success: true };
+  };
+
   const adminLogout = () => {
     setIsAdminAuthenticated(false);
+    setCurrentAdminSession(null);
     safeRemoveItem('dubai_start_admin_token');
+    safeRemoveItem('dubai_start_admin_session');
     if (activeTab === 'admin') {
       setActiveTab('home');
     }
@@ -395,6 +527,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateAdminPassword = (newPass: string) => {
     setAdminPasswordState(newPass);
     safeSetItem('dubai_start_admin_password', newPass);
+  };
+
+  // Moderator CRUD & helpers
+  const addModerator = (modData: Omit<Moderator, 'id' | 'createdAt'>) => {
+    const newMod: Moderator = {
+      ...modData,
+      id: 'mod-' + Date.now(),
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    setModerators(prev => [newMod, ...prev]);
+  };
+
+  const updateModerator = (id: string, updates: Partial<Moderator>) => {
+    setModerators(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+    if (currentAdminSession?.moderatorId === id) {
+      setCurrentAdminSession(prev => prev ? {
+        ...prev,
+        name: updates.name || prev.name,
+        username: updates.username || prev.username,
+        permissions: updates.permissions || prev.permissions
+      } : null);
+    }
+  };
+
+  const deleteModerator = (id: string) => {
+    setModerators(prev => prev.filter(m => m.id !== id));
+    if (currentAdminSession?.moderatorId === id) {
+      adminLogout();
+    }
+  };
+
+  const toggleModeratorActive = (id: string) => {
+    setModerators(prev => prev.map(m => m.id === id ? { ...m, active: !m.active } : m));
+  };
+
+  const canAccess = (permission: keyof ModeratorPermissions): boolean => {
+    if (!isAdminAuthenticated) return false;
+    if (!currentAdminSession) return true;
+    if (currentAdminSession.role === 'super_admin') return true;
+    return !!currentAdminSession.permissions?.[permission];
   };
 
   const openAdminLoginModal = () => setIsAdminLoginModalOpen(true);
@@ -663,12 +835,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         simulateTestTraffic,
         isAdminAuthenticated,
         adminLogin,
+        moderatorLogin,
         adminLogout,
         adminPassword,
         updateAdminPassword,
         isAdminLoginModalOpen,
         openAdminLoginModal,
         closeAdminLoginModal,
+        currentAdminSession,
+        moderators,
+        addModerator,
+        updateModerator,
+        deleteModerator,
+        toggleModeratorActive,
+        canAccess,
         addJob,
         updateJob,
         deleteJob,

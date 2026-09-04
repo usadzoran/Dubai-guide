@@ -185,3 +185,34 @@ export interface VisitorStats {
     unique: number;
   }[];
 }
+
+export interface ModeratorPermissions {
+  manageJobs: boolean;
+  manageHousing: boolean;
+  manageOffices: boolean;
+  manageAds: boolean;
+  manageReports: boolean;
+  viewAnalytics: boolean;
+}
+
+export interface Moderator {
+  id: string;
+  name: string;
+  username: string;
+  password: string;
+  permissions: ModeratorPermissions;
+  active: boolean;
+  createdAt: string;
+  lastLogin?: string;
+  notes?: string;
+}
+
+export type AdminRole = 'super_admin' | 'moderator';
+
+export interface AdminSession {
+  role: AdminRole;
+  moderatorId?: string;
+  username: string;
+  name: string;
+  permissions: ModeratorPermissions;
+}
