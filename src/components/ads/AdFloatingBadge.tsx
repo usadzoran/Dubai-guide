@@ -7,19 +7,22 @@ export const AdFloatingBadge: React.FC = () => {
   const { ads, recordAdClick, recordAdImpression, activeTab } = useApp();
   const [dismissed, setDismissed] = useState(false);
 
-  const floatingAd = ads.find(a => a.placement === 'floating_badge' && a.active);
+  const floatingAds = ads.filter(a => a.placement === 'floating_badge' && a.active);
+  const floatingAd = floatingAds.find(a => a.adType === 'html' || Boolean(a.htmlCode?.trim())) || floatingAds[0];
+
+  const isHtml = Boolean(floatingAd && (floatingAd.adType === 'html' || Boolean(floatingAd.htmlCode?.trim())));
 
   useEffect(() => {
-    if (floatingAd && !dismissed && activeTab !== 'admin' && floatingAd.adType !== 'html') {
+    if (floatingAd && !dismissed && activeTab !== 'admin' && !isHtml) {
       recordAdImpression(floatingAd.id);
     }
-  }, [floatingAd?.id, floatingAd?.adType, dismissed, activeTab]);
+  }, [floatingAd?.id, isHtml, dismissed, activeTab]);
 
   // Don't show inside admin or if no ad or dismissed
   if (activeTab === 'admin' || !floatingAd || dismissed) return null;
 
   // Custom HTML Ad
-  if (floatingAd.adType === 'html' && floatingAd.htmlCode) {
+  if (isHtml && floatingAd.htmlCode) {
     return (
       <div className="fixed bottom-20 sm:bottom-6 start-4 z-40 max-w-[280px] sm:max-w-xs animate-in fade-in slide-in-from-bottom-3 duration-300">
         <div className="relative">

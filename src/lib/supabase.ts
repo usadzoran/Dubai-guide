@@ -79,20 +79,21 @@ export function mapOfficeRow(row: any): RecruitmentOffice {
 }
 
 export function mapAdRow(row: any): AdItem {
+  const isHtml = row.ad_type === 'html' || Boolean(row.html_code);
   return {
     id: row.id,
-    title: row.title,
+    title: row.title || (isHtml ? 'إعلان كود HTML' : 'إعلان بدون عنوان'),
     description: row.description || '',
     placement: row.placement,
     imageUrl: row.image_url,
     ctaText: row.cta_text || 'تفاصيل الإعلان',
     ctaLink: row.cta_link || '#',
     badge: row.badge,
-    active: Boolean(row.active),
+    active: row.active === undefined ? true : Boolean(row.active),
     clicks: Number(row.clicks || 0),
     impressions: Number(row.impressions || 0),
     bgStyle: row.bg_style || 'dark',
-    adType: row.ad_type || 'standard',
+    adType: isHtml ? 'html' : (row.ad_type || 'standard'),
     htmlCode: row.html_code || undefined,
     createdAt: row.created_at || new Date().toISOString()
   };
@@ -381,21 +382,7 @@ export async function fetchAdsFromSupabase(): Promise<AdItem[] | null> {
 
     if (error || !data) return null;
 
-    return data.map((row: any) => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      placement: row.placement,
-      imageUrl: row.image_url,
-      ctaText: row.cta_text,
-      ctaLink: row.cta_link,
-      badge: row.badge,
-      active: Boolean(row.active),
-      clicks: Number(row.clicks || 0),
-      impressions: Number(row.impressions || 0),
-      bgStyle: row.bg_style || 'dark',
-      createdAt: row.created_at || new Date().toISOString()
-    }));
+    return data.map(mapAdRow);
   } catch {
     return null;
   }

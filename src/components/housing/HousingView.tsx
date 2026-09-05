@@ -371,7 +371,12 @@ export const HousingView: React.FC = () => {
 
               {index === 2 && (
                 <div className="col-span-full">
-                  <AdFeedCard placement="housing_feed" />
+                  <AdFeedCard placement="housing_feed" adIndex={0} />
+                </div>
+              )}
+              {index === 5 && (
+                <div className="col-span-full">
+                  <AdFeedCard placement="housing_feed" adIndex={1} />
                 </div>
               )}
             </React.Fragment>

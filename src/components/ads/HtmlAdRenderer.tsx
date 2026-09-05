@@ -28,15 +28,18 @@ export const HtmlAdRenderer: React.FC<HtmlAdRendererProps> = ({
     if (!containerRef.current || !ad.htmlCode) return;
 
     const container = containerRef.current;
-    container.innerHTML = ad.htmlCode;
 
-    // Execute scripts contained in htmlCode (e.g. AdSense, custom trackers)
+    // React dangerouslySetInnerHTML already puts innerHTML into the container.
+    // However, browsers do not execute <script> tags injected via innerHTML.
+    // We safely re-create any <script> elements so scripts (AdSense, analytics, widgets) run properly:
     const scripts = container.querySelectorAll('script');
     scripts.forEach((oldScript) => {
+      if (oldScript.getAttribute('data-ad-script-executed') === 'true') return;
       const newScript = document.createElement('script');
       Array.from(oldScript.attributes).forEach((attr) => {
         newScript.setAttribute(attr.name, attr.value);
       });
+      newScript.setAttribute('data-ad-script-executed', 'true');
       newScript.text = oldScript.text;
       if (oldScript.parentNode) {
         oldScript.parentNode.replaceChild(newScript, oldScript);
@@ -61,7 +64,7 @@ export const HtmlAdRenderer: React.FC<HtmlAdRendererProps> = ({
   if (!ad.htmlCode) return null;
 
   return (
-    <div className={`relative group html-ad-container ${className}`}>
+    <div className={`relative group html-ad-container w-full ${className}`}>
       {showBadge && (
         <div className="absolute top-1 end-2 z-10 pointer-events-none opacity-40 group-hover:opacity-100 transition-opacity">
           <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-950/80 text-slate-400 border border-slate-800">
@@ -71,6 +74,7 @@ export const HtmlAdRenderer: React.FC<HtmlAdRendererProps> = ({
       )}
       <div 
         ref={containerRef} 
+        dangerouslySetInnerHTML={{ __html: ad.htmlCode }}
         className="w-full overflow-hidden text-start rounded-2xl"
       />
     </div>

@@ -189,38 +189,30 @@ export const AdminAdsSection: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title && adType === 'standard') return;
+    const isHtml = adType === 'html' || Boolean(htmlCode.trim());
+    if (!title.trim() && !isHtml) return;
 
-    const finalTitle = title.trim() || (adType === 'html' ? 'إعلان كود HTML مخصص' : 'إعلان جديد');
+    const finalTitle = title.trim() || (isHtml ? 'إعلان كود HTML مخصص' : 'إعلان جديد');
+    const finalHtmlCode = isHtml ? htmlCode.trim() : undefined;
+
+    const adPayload = {
+      title: finalTitle,
+      description: description.trim() || (isHtml ? 'إعلان مخصص بكود HTML' : ''),
+      placement,
+      imageUrl: imageUrl.trim() || undefined,
+      ctaText: ctaText.trim() || (isHtml ? '' : 'تفاصيل الإعلان'),
+      ctaLink: ctaLink.trim() || '#',
+      badge: badge.trim() || undefined,
+      bgStyle,
+      active,
+      adType: (isHtml ? 'html' : 'standard') as 'html' | 'standard',
+      htmlCode: finalHtmlCode
+    };
 
     if (editingAd) {
-      updateAd(editingAd.id, {
-        title: finalTitle,
-        description,
-        placement,
-        imageUrl: imageUrl || undefined,
-        ctaText: ctaText || 'تفاصيل الإعلان',
-        ctaLink: ctaLink || '#',
-        badge: badge || undefined,
-        bgStyle,
-        active,
-        adType,
-        htmlCode: adType === 'html' ? htmlCode : undefined
-      });
+      updateAd(editingAd.id, adPayload);
     } else {
-      addAd({
-        title: finalTitle,
-        description,
-        placement,
-        imageUrl: imageUrl || undefined,
-        ctaText: ctaText || 'تفاصيل الإعلان',
-        ctaLink: ctaLink || '#',
-        badge: badge || undefined,
-        bgStyle,
-        active,
-        adType,
-        htmlCode: adType === 'html' ? htmlCode : undefined
-      });
+      addAd(adPayload);
     }
 
     setModalOpen(false);
@@ -601,7 +593,7 @@ export const AdminAdsSection: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    required
+                    required={adType === 'standard'}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="مثال: إعلان تذاكر الطيران / كود أدسنس الهيرو..."

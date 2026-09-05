@@ -6,25 +6,30 @@ import { HtmlAdRenderer } from './HtmlAdRenderer';
 
 interface AdFeedCardProps {
   placement: AdPlacement;
+  adIndex?: number;
 }
 
-export const AdFeedCard: React.FC<AdFeedCardProps> = ({ placement }) => {
+export const AdFeedCard: React.FC<AdFeedCardProps> = ({ placement, adIndex = 0 }) => {
   const { ads, recordAdClick, recordAdImpression } = useApp();
 
-  const ad = ads.find(a => a.placement === placement && a.active);
+  const matchingAds = ads.filter(a => a.placement === placement && a.active);
+  if (matchingAds.length === 0) return null;
 
-  useEffect(() => {
-    if (ad && ad.adType !== 'html') {
-      recordAdImpression(ad.id);
-    }
-  }, [ad?.id, ad?.adType]);
-
+  const ad = matchingAds[adIndex % matchingAds.length];
   if (!ad) return null;
 
+  const isHtml = Boolean(ad.adType === 'html' || Boolean(ad.htmlCode?.trim()));
+
+  useEffect(() => {
+    if (ad && !isHtml) {
+      recordAdImpression(ad.id);
+    }
+  }, [ad.id, isHtml]);
+
   // Custom HTML Ad
-  if (ad.adType === 'html' && ad.htmlCode) {
+  if (isHtml && ad.htmlCode) {
     return (
-      <div className="col-span-full my-2">
+      <div className="col-span-full my-2 w-full">
         <HtmlAdRenderer ad={ad} className="shadow-lg" />
       </div>
     );

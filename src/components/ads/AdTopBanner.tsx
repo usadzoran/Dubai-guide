@@ -7,26 +7,29 @@ export const AdTopBanner: React.FC = () => {
   const { ads, recordAdClick, recordAdImpression } = useApp();
   const [dismissed, setDismissed] = useState(false);
 
-  // Find active top_banner ad
-  const topAd = ads.find(a => a.placement === 'top_banner' && a.active);
+  // Find active top_banner ads, prioritizing any HTML ad or the newest ad
+  const topAds = ads.filter(a => a.placement === 'top_banner' && a.active);
+  const topAd = topAds.find(a => a.adType === 'html' || Boolean(a.htmlCode?.trim())) || topAds[0];
+
+  const isHtml = Boolean(topAd && (topAd.adType === 'html' || Boolean(topAd.htmlCode?.trim())));
 
   useEffect(() => {
-    if (topAd && !dismissed && topAd.adType !== 'html') {
+    if (topAd && !dismissed && !isHtml) {
       recordAdImpression(topAd.id);
     }
-  }, [topAd?.id, topAd?.adType, dismissed]);
+  }, [topAd?.id, isHtml, dismissed]);
 
   if (!topAd || dismissed) return null;
 
   // Custom HTML Ad
-  if (topAd.adType === 'html' && topAd.htmlCode) {
+  if (isHtml && topAd.htmlCode) {
     return (
       <aside aria-label="إعلان ترويجي" className="relative z-40 bg-slate-950 border-b border-slate-800">
         <div className="max-w-7xl mx-auto relative">
           <HtmlAdRenderer ad={topAd} showBadge={false} />
           <button
             onClick={() => setDismissed(true)}
-            className="absolute top-1 end-2 p-1 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors z-20"
+            className="absolute top-1 end-2 p-1 rounded-full bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors z-20 border border-slate-700"
             title="إغلاق الإعلان"
             aria-label="إغلاق الإعلان"
           >

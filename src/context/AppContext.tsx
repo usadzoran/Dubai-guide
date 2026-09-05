@@ -244,7 +244,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Ads State
   const [ads, setAds] = useState<AdItem[]>(() => {
     const saved = safeGetItem('dubai_start_ads');
-    return safeParseJSON(saved, INITIAL_ADS);
+    const local = safeParseJSON<AdItem[]>(saved, INITIAL_ADS);
+    return local.map(ad => {
+      const initialMatch = INITIAL_ADS.find(init => init.id === ad.id);
+      const effectiveHtml = ad.htmlCode || initialMatch?.htmlCode;
+      const isHtml = ad.adType === 'html' || Boolean(effectiveHtml?.trim()) || initialMatch?.adType === 'html';
+      return {
+        ...ad,
+        adType: isHtml ? 'html' : (ad.adType || 'standard'),
+        htmlCode: effectiveHtml || undefined
+      };
+    });
   });
 
   // Visitor Analytics State
@@ -335,7 +345,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (remoteJobs && remoteJobs.length > 0) setJobs(remoteJobs);
       if (remoteHousing && remoteHousing.length > 0) setHousing(remoteHousing);
       if (remoteOffices && remoteOffices.length > 0) setRecruitmentOffices(remoteOffices);
-      if (remoteAds && remoteAds.length > 0) setAds(remoteAds);
+      if (remoteAds && remoteAds.length > 0) {
+        setAds(prev => {
+          return remoteAds.map(rAd => {
+            const localMatch = prev.find(p => p.id === rAd.id);
+            const initialMatch = INITIAL_ADS.find(init => init.id === rAd.id);
+            const effectiveHtml = rAd.htmlCode || localMatch?.htmlCode || initialMatch?.htmlCode;
+            const isHtml = rAd.adType === 'html' || Boolean(effectiveHtml?.trim()) || localMatch?.adType === 'html';
+            return {
+              ...rAd,
+              adType: isHtml ? 'html' : (rAd.adType || 'standard'),
+              htmlCode: effectiveHtml || undefined
+            };
+          });
+        });
+      }
       if (remoteReports && remoteReports.length > 0) setReports(remoteReports);
       if (remoteMods && remoteMods.length > 0) setModerators(remoteMods);
       
@@ -733,8 +757,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Ads CRUD and tracking
   const addAd = (adData: Omit<AdItem, 'id' | 'clicks' | 'impressions' | 'createdAt'>) => {
+    const isHtml = adData.adType === 'html' || Boolean(adData.htmlCode?.trim());
     const newAd: AdItem = {
       ...adData,
+      adType: isHtml ? 'html' : (adData.adType || 'standard'),
+      htmlCode: adData.htmlCode?.trim() || undefined,
       id: 'ad-' + Date.now(),
       clicks: 0,
       impressions: 0,
@@ -746,7 +773,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateAd = (id: string, updates: Partial<AdItem>) => {
     setAds(prev => {
-      const updated = prev.map(a => a.id === id ? { ...a, ...updates } : a);
+      const updated = prev.map(a => {
+        if (a.id === id) {
+          const merged = { ...a, ...updates };
+          const isHtml = merged.adType === 'html' || Boolean(merged.htmlCode?.trim());
+          return {
+            ...merged,
+            adType: isHtml ? 'html' : (merged.adType || 'standard'),
+            htmlCode: merged.htmlCode?.trim() || undefined
+          };
+        }
+        return a;
+      });
       const target = updated.find(a => a.id === id);
       if (target) upsertAdInSupabase(target);
       return updated;

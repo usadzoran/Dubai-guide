@@ -405,7 +405,12 @@ export const JobsView: React.FC = () => {
 
                 {index === 1 && (
                   <div className="md:col-span-2">
-                    <AdFeedCard placement="jobs_feed" />
+                    <AdFeedCard placement="jobs_feed" adIndex={0} />
+                  </div>
+                )}
+                {index === 4 && (
+                  <div className="md:col-span-2">
+                    <AdFeedCard placement="jobs_feed" adIndex={1} />
                   </div>
                 )}
               </React.Fragment>
