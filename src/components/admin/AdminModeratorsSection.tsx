@@ -328,7 +328,7 @@ export const AdminModeratorsSection: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {PERMISSION_CONFIGS.map(({ key, label, icon: Icon }) => {
                       const isGranted = mod.permissions[key];
                       return (

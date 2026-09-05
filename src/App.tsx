@@ -38,8 +38,8 @@ const AppContent: React.FC = () => {
       {/* Sticky Top Header */}
       <Header />
 
-      {/* Main Content Dynamic Switching */}
-      <main className="flex-1">
+      {/* Main Content Dynamic Switching with mobile bottom nav spacing */}
+      <main className="flex-1 pb-20 md:pb-0">
         {activeTab === 'home' && (
           <div>
             <Hero />

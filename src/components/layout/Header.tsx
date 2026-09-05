@@ -67,7 +67,7 @@ export const Header: React.FC = () => {
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
             <button
               onClick={() => setActiveTab('jobs')}
               className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5 ${
@@ -142,13 +142,13 @@ export const Header: React.FC = () => {
           </nav>
 
           {/* Right Action Icons & Language */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             
             {/* Language Switcher */}
             <div className="relative">
               <button
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700/70 text-slate-200 hover:border-amber-400/50 text-xs font-semibold transition-all"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700/70 text-slate-200 hover:border-amber-400/50 text-xs font-semibold transition-all cursor-pointer min-h-[38px]"
                 title="Change Language"
                 id="btn-language-toggle"
               >
@@ -181,7 +181,7 @@ export const Header: React.FC = () => {
             {totalSaved > 0 && (
               <button 
                 onClick={() => setActiveTab('more')}
-                className="relative p-2 rounded-lg bg-slate-900 border border-slate-800 text-amber-400 hover:bg-slate-800 transition-colors"
+                className="relative p-2 rounded-lg bg-slate-900 border border-slate-800 text-amber-400 hover:bg-slate-800 transition-colors min-w-[38px] min-h-[38px] flex items-center justify-center cursor-pointer"
                 title="Saved Items"
               >
                 <Bookmark className="w-4 h-4" />
@@ -191,10 +191,10 @@ export const Header: React.FC = () => {
               </button>
             )}
 
-            {/* Mobile Menu Toggle Button */}
+            {/* Mobile / Tablet Menu Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white active:bg-slate-800 transition-colors"
+              className="lg:hidden min-w-[42px] min-h-[42px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white active:bg-slate-800 transition-colors cursor-pointer"
               id="btn-mobile-menu"
               aria-label="القائمة الرئيسية"
             >
@@ -204,9 +204,9 @@ export const Header: React.FC = () => {
 
         </div>
 
-        {/* Mobile Collapsible Navigation Menu */}
+        {/* Mobile & Tablet Collapsible Navigation Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-3 border-t border-slate-800/80 space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="lg:hidden py-3 border-t border-slate-800/80 space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
             <button
               onClick={() => { setActiveTab('home'); setMobileMenuOpen(false); }}
               className={`w-full text-start px-3.5 py-3 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2.5 transition-colors ${

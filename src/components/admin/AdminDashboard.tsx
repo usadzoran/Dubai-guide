@@ -295,7 +295,7 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* Admin Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 mb-8 bg-slate-900/90 p-1.5 sm:p-2 rounded-2xl border border-slate-800 w-full overflow-x-auto">
+      <div className="flex gap-2 mb-6 sm:mb-8 bg-slate-900/90 p-1.5 sm:p-2 rounded-2xl border border-slate-800 w-full overflow-x-auto no-scrollbar scroll-smooth lg:flex-wrap">
         
         {/* Moderators Tab - Super Admin Only */}
         {isSuperAdmin && (
@@ -469,7 +469,7 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
             <div className="overflow-x-auto">
-              <table className="w-full text-start text-xs text-slate-300">
+              <table className="w-full min-w-[580px] text-start text-xs text-slate-300">
                 <thead className="bg-slate-950 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
                   <tr>
                     <th className="p-3.5 text-start">المسمى الوظيفي</th>
@@ -535,7 +535,7 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
             <div className="overflow-x-auto">
-              <table className="w-full text-start text-xs text-slate-300">
+              <table className="w-full min-w-[580px] text-start text-xs text-slate-300">
                 <thead className="bg-slate-950 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
                   <tr>
                     <th className="p-3.5 text-start">عنوان الإعلان</th>
@@ -591,7 +591,7 @@ export const AdminDashboard: React.FC = () => {
           <h3 className="text-lg font-bold text-white">مكاتب التوظيف المعتمدة (مرخصة من وزارة الموارد البشرية MOHRE)</h3>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
             <div className="overflow-x-auto">
-              <table className="w-full text-start text-xs text-slate-300">
+              <table className="w-full min-w-[580px] text-start text-xs text-slate-300">
                 <thead className="bg-slate-950 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
                   <tr>
                     <th className="p-3.5 text-start">اسم المكتب</th>

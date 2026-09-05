@@ -8,8 +8,8 @@ export const AdminStatusBadge: React.FC = () => {
   if (!isAdminAuthenticated) return null;
 
   return (
-    <div className="fixed top-2 end-2 sm:top-3 sm:end-3 z-50 animate-in fade-in duration-200">
-      <div className="bg-slate-900/90 backdrop-blur-md border border-amber-400/60 rounded-2xl px-3 py-1.5 shadow-2xl flex items-center gap-2 text-xs">
+    <div className="fixed bottom-20 end-3 sm:bottom-auto sm:top-3 sm:end-3 z-40 animate-in fade-in duration-200">
+      <div className="bg-slate-900/95 backdrop-blur-md border border-amber-400/60 rounded-2xl px-2.5 sm:px-3 py-1.5 shadow-2xl flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs">
         <div className="flex items-center gap-1.5 text-amber-400 font-bold">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="hidden sm:inline">مشرف النظام</span>
