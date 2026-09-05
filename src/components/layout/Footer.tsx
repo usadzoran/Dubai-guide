@@ -5,21 +5,25 @@ import { ShieldCheck, ExternalLink, Heart, Lock } from 'lucide-react';
 export const Footer: React.FC = () => {
   const { setActiveTab, t, openAdminLoginModal } = useApp();
   const [clickCount, setClickCount] = useState(0);
-  const [hintMessage, setHintMessage] = useState<string | null>(null);
 
+  // Hidden discrete trigger for mobile admin: 7 rapid silent taps with no visual indicators or hints
   const handleSecretClick = () => {
     const nextCount = clickCount + 1;
     setClickCount(nextCount);
 
-    if (nextCount >= 5) {
+    if (nextCount >= 7) {
       setClickCount(0);
-      setHintMessage(null);
       openAdminLoginModal();
-    } else if (nextCount >= 2) {
-      setHintMessage(`بوابة المشرف: بقي ${5 - nextCount} نقرات`);
-      setTimeout(() => setHintMessage(null), 1500);
     }
   };
+
+  // Reset click count if idle for 3 seconds
+  React.useEffect(() => {
+    if (clickCount > 0) {
+      const timer = setTimeout(() => setClickCount(0), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [clickCount]);
 
   return (
     <footer className="bg-slate-950 border-t border-slate-800 text-slate-400 text-sm mt-16 pb-24 md:pb-12">
@@ -125,21 +129,13 @@ export const Footer: React.FC = () => {
           </p>
         </div>
 
-        {/* Bottom copyright line with secret trigger */}
-        <div className="mt-8 pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4 relative">
-          {hintMessage && (
-            <div className="absolute -top-7 start-1/2 -translate-x-1/2 bg-amber-400 text-slate-950 px-3 py-1 rounded-full text-[11px] font-bold shadow-lg animate-bounce">
-              {hintMessage}
-            </div>
-          )}
-
+        {/* Bottom copyright line */}
+        <div className="mt-8 pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
           <div 
             onClick={handleSecretClick}
-            className="cursor-default select-none group flex items-center gap-2 hover:text-slate-400 transition-colors"
-            title="جميع الحقوق محفوظة"
+            className="cursor-default select-none text-slate-500"
           >
             <span>{t.footerRights}</span>
-            <span className="opacity-0 group-hover:opacity-10 text-[9px] text-amber-400 transition-opacity">●</span>
           </div>
 
           <div className="flex items-center gap-1">
