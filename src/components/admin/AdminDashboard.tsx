@@ -52,7 +52,8 @@ export const AdminDashboard: React.FC = () => {
     adminLogout,
     currentAdminSession,
     moderators,
-    canAccess
+    canAccess,
+    realtimeStatus
   } = useApp();
 
   const isSuperAdmin = !currentAdminSession || currentAdminSession.role === 'super_admin';
@@ -419,6 +420,14 @@ export const AdminDashboard: React.FC = () => {
           >
             <Database className="w-4 h-4" />
             <span>قاعدة بيانات Supabase</span>
+            <span 
+              className={`w-2 h-2 rounded-full ${
+                realtimeStatus === 'connected' ? 'bg-emerald-400 animate-pulse' :
+                realtimeStatus === 'connecting' ? 'bg-amber-400 animate-ping' :
+                'bg-slate-500'
+              }`} 
+              title={realtimeStatus === 'connected' ? 'متصل لحظياً' : 'جارٍ الاتصال'}
+            />
           </button>
         )}
 
@@ -682,6 +691,11 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: MODERATORS MANAGEMENT (Super Admin Only) */}
+      {activeAdminTab === 'moderators' && isSuperAdmin && (
+        <AdminModeratorsSection />
+      )}
+
       {/* TAB: SECURITY & SETTINGS */}
       {activeAdminTab === 'security' && (
         <div className="max-w-2xl mx-auto space-y-6">
@@ -691,66 +705,154 @@ export const AdminDashboard: React.FC = () => {
                 <Shield className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-white">إعدادات أمان المشرف والوصول</h3>
-                <p className="text-xs text-slate-400">تغيير كلمة المرور السرية وطرق الوصول للوحة</p>
+                <h3 className="text-lg font-black text-white">
+                  {isSuperAdmin ? 'إعدادات أمان المدير العام والوصول' : 'بيانات حساب المشرف والصلاحيات'}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {isSuperAdmin 
+                    ? 'تغيير كلمة المرور الرئيسية وطرق الوصول السري للوحة' 
+                    : 'عرض معلومات حسابك والصلاحيات المخولة لك من طرف الإدارة'}
+                </p>
               </div>
             </div>
 
-            {passwordToast && (
-              <div className="p-3.5 rounded-2xl bg-amber-400/15 border border-amber-400/30 text-amber-300 text-xs font-bold">
-                {passwordToast}
+            {isSuperAdmin ? (
+              <>
+                {passwordToast && (
+                  <div className="p-3.5 rounded-2xl bg-amber-400/15 border border-amber-400/30 text-amber-300 text-xs font-bold">
+                    {passwordToast}
+                  </div>
+                )}
+
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      كلمة مرور المدير العام الحالية
+                    </label>
+                    <input 
+                      type="text" 
+                      readOnly 
+                      value={adminPassword} 
+                      dir="ltr"
+                      className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 font-mono text-xs select-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      كلمة المرور الجديدة (Master Password)
+                    </label>
+                    <input 
+                      type="text" 
+                      required
+                      value={newPasswordInput} 
+                      onChange={(e) => setNewPasswordInput(e.target.value)}
+                      placeholder="أدخل كلمة مرور سرية جديدة..."
+                      dir="ltr"
+                      className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-sm focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+                  >
+                    تحديث وحفظ كلمة المرور
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="space-y-4 text-xs">
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">الاسم:</span>
+                    <span className="text-white font-bold">{currentAdminSession?.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center font-mono">
+                    <span className="text-slate-400 font-sans">اسم المستخدم:</span>
+                    <span className="text-amber-400 font-bold">@{currentAdminSession?.username}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">نوع الحساب:</span>
+                    <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[11px] font-bold">
+                      مشرف فرعي (Modérateur)
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-300 mb-2">الصلاحيات المتاحة لحسابك:</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                      currentAdminSession?.permissions?.manageJobs 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+                        : 'bg-slate-950 border-slate-800 text-slate-500 line-through'
+                    }`}>
+                      <span>إدارة الوظائف</span>
+                      <span>{currentAdminSession?.permissions?.manageJobs ? '✓ مفعّلة' : '✗ معطلة'}</span>
+                    </div>
+
+                    <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                      currentAdminSession?.permissions?.manageHousing 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+                        : 'bg-slate-950 border-slate-800 text-slate-500 line-through'
+                    }`}>
+                      <span>إدارة السكن</span>
+                      <span>{currentAdminSession?.permissions?.manageHousing ? '✓ مفعّلة' : '✗ معطلة'}</span>
+                    </div>
+
+                    <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                      currentAdminSession?.permissions?.manageOffices 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+                        : 'bg-slate-950 border-slate-800 text-slate-500 line-through'
+                    }`}>
+                      <span>مكاتب التوظيف</span>
+                      <span>{currentAdminSession?.permissions?.manageOffices ? '✓ مفعّلة' : '✗ معطلة'}</span>
+                    </div>
+
+                    <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                      currentAdminSession?.permissions?.manageAds 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+                        : 'bg-slate-950 border-slate-800 text-slate-500 line-through'
+                    }`}>
+                      <span>إدارة الإعلانات</span>
+                      <span>{currentAdminSession?.permissions?.manageAds ? '✓ مفعّلة' : '✗ معطلة'}</span>
+                    </div>
+
+                    <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                      currentAdminSession?.permissions?.manageReports 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+                        : 'bg-slate-950 border-slate-800 text-slate-500 line-through'
+                    }`}>
+                      <span>مراجعة البلاغات</span>
+                      <span>{currentAdminSession?.permissions?.manageReports ? '✓ مفعّلة' : '✗ معطلة'}</span>
+                    </div>
+
+                    <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                      currentAdminSession?.permissions?.viewAnalytics 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+                        : 'bg-slate-950 border-slate-800 text-slate-500 line-through'
+                    }`}>
+                      <span>إحصائيات الزوار</span>
+                      <span>{currentAdminSession?.permissions?.viewAnalytics ? '✓ مفعّلة' : '✗ معطلة'}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
-            <form onSubmit={handleChangePassword} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  كلمة مرور المشرف الحالية
-                </label>
-                <input 
-                  type="text" 
-                  readOnly 
-                  value={adminPassword} 
-                  dir="ltr"
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 font-mono text-xs select-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  كلمة المرور الجديدة (Master Password)
-                </label>
-                <input 
-                  type="text" 
-                  required
-                  value={newPasswordInput} 
-                  onChange={(e) => setNewPasswordInput(e.target.value)}
-                  placeholder="أدخل كلمة مرور سرية جديدة..."
-                  dir="ltr"
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-sm focus:border-amber-400 focus:outline-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition-all shadow-md shadow-amber-500/20"
-              >
-                تحديث وحفظ كلمة المرور
-              </button>
-            </form>
-
             <div className="pt-4 border-t border-slate-800 space-y-2 text-xs text-slate-400">
-              <h4 className="font-bold text-white">طرق الوصول للوحة المشرف بعد إخفاء الزر عن الزوار:</h4>
-              <p>1. <strong>اختصار لوحة المفاتيح:</strong> الضغط على <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700">Ctrl + Shift + A</kbd> في أي وقت يفتح نافذة الدخول الفورية.</p>
+              <h4 className="font-bold text-white">طرق الوصول للوحة المشرف:</h4>
+              <p>1. <strong>اختصار لوحة المفاتيح:</strong> الضغط على <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700 font-mono">Ctrl + Shift + A</kbd> في أي وقت يفتح نافذة الدخول الفورية.</p>
               <p>2. <strong>النقرة الخفية في الفوتر:</strong> النقر 5 مرات متتالية على عبارة حقوق النشر أسفل الصفحة.</p>
-              <p>3. <strong>رابط الهاش السري:</strong> إضافة <code className="text-amber-400 font-mono">#admin</code> أو <code className="text-amber-400 font-mono">#admin-secret</code> في نهاية رابط الموقع في المتصفح.</p>
+              <p>3. <strong>رابط الهاش السري:</strong> إضافة <code className="text-amber-400 font-mono">#admin</code> في نهاية رابط الموقع في المتصفح.</p>
             </div>
           </div>
         </div>
       )}
 
       {/* TAB: SUPABASE DATABASE INTEGRATION */}
-      {activeAdminTab === 'supabase' && (
+      {activeAdminTab === 'supabase' && isSuperAdmin && (
         <AdminSupabaseSection />
       )}
 

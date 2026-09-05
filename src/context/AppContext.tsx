@@ -26,6 +26,7 @@ import {
   fetchOfficesFromSupabase, 
   fetchAdsFromSupabase, 
   fetchReportsFromSupabase,
+  fetchModeratorsFromSupabase,
   upsertJobInSupabase,
   deleteJobFromSupabase,
   upsertHousingInSupabase,
@@ -35,7 +36,10 @@ import {
   upsertAdInSupabase,
   deleteAdFromSupabase,
   insertReportInSupabase,
-  updateReportStatusInSupabase
+  updateReportStatusInSupabase,
+  upsertModeratorInSupabase,
+  deleteModeratorFromSupabase,
+  subscribeToSupabaseRealtime
 } from '../lib/supabase';
 
 export type NavTab = 
@@ -140,6 +144,11 @@ interface AppContextType {
 
   updateReportStatus: (id: string, status: 'new' | 'reviewed' | 'dismissed') => void;
   resetToDefaultData: () => void;
+
+  // Realtime Database & Supabase Sync
+  realtimeStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
+  lastRealtimeUpdate: Date | null;
+  refreshFromSupabase: () => Promise<void>;
 
   t: typeof TRANSLATIONS['ar'];
 }
@@ -268,6 +277,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
 
+  // Realtime Database & Supabase connection status
+  const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+  const [lastRealtimeUpdate, setLastRealtimeUpdate] = useState<Date | null>(null);
+
   // Report Modal state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ title: string; type: any } | null>(null);
@@ -287,36 +300,156 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [language]);
 
-  // Persist Data Changes
+  // Persist Data Changes locally as fallback
   useEffect(() => {
     safeSetItem('dubai_start_jobs', JSON.stringify(jobs));
   }, [jobs]);
 
-  // Initial Sync from Supabase on Mount
+  // Unified function to fetch latest remote data from Supabase
+  const refreshFromSupabase = async () => {
+    try {
+      setRealtimeStatus('connecting');
+      const [remoteJobs, remoteHousing, remoteOffices, remoteAds, remoteReports, remoteMods] = await Promise.all([
+        fetchJobsFromSupabase(),
+        fetchHousingFromSupabase(),
+        fetchOfficesFromSupabase(),
+        fetchAdsFromSupabase(),
+        fetchReportsFromSupabase(),
+        fetchModeratorsFromSupabase()
+      ]);
+
+      if (remoteJobs && remoteJobs.length > 0) setJobs(remoteJobs);
+      if (remoteHousing && remoteHousing.length > 0) setHousing(remoteHousing);
+      if (remoteOffices && remoteOffices.length > 0) setRecruitmentOffices(remoteOffices);
+      if (remoteAds && remoteAds.length > 0) setAds(remoteAds);
+      if (remoteReports && remoteReports.length > 0) setReports(remoteReports);
+      if (remoteMods && remoteMods.length > 0) setModerators(remoteMods);
+      
+      setLastRealtimeUpdate(new Date());
+      setRealtimeStatus('connected');
+    } catch (err) {
+      console.info('Supabase fetch info:', err);
+      setRealtimeStatus('error');
+    }
+  };
+
+  // Initial Sync from Supabase & Realtime Subscription
   useEffect(() => {
     let isMounted = true;
-    const loadFromSupabase = async () => {
-      try {
-        const [remoteJobs, remoteHousing, remoteOffices, remoteAds, remoteReports] = await Promise.all([
-          fetchJobsFromSupabase(),
-          fetchHousingFromSupabase(),
-          fetchOfficesFromSupabase(),
-          fetchAdsFromSupabase(),
-          fetchReportsFromSupabase()
-        ]);
 
+    // 1. Initial snapshot fetch
+    refreshFromSupabase();
+
+    // 2. Realtime WebSocket subscription across all tables
+    const unsubscribe = subscribeToSupabaseRealtime({
+      onStatusChange: (status) => {
         if (!isMounted) return;
-        if (remoteJobs && remoteJobs.length > 0) setJobs(remoteJobs);
-        if (remoteHousing && remoteHousing.length > 0) setHousing(remoteHousing);
-        if (remoteOffices && remoteOffices.length > 0) setRecruitmentOffices(remoteOffices);
-        if (remoteAds && remoteAds.length > 0) setAds(remoteAds);
-        if (remoteReports && remoteReports.length > 0) setReports(remoteReports);
-      } catch (err) {
-        console.info('Supabase initial fetch info:', err);
+        if (status === 'CONNECTED') {
+          setRealtimeStatus('connected');
+        } else if (status === 'CONNECTING') {
+          setRealtimeStatus('connecting');
+        } else if (status === 'DISCONNECTED') {
+          setRealtimeStatus('disconnected');
+        } else {
+          setRealtimeStatus('error');
+        }
+      },
+      onJobInsert: (newJob) => {
+        if (!isMounted) return;
+        setJobs(prev => prev.some(j => j.id === newJob.id) ? prev.map(j => j.id === newJob.id ? newJob : j) : [newJob, ...prev]);
+        setLastRealtimeUpdate(new Date());
+      },
+      onJobUpdate: (updatedJob) => {
+        if (!isMounted) return;
+        setJobs(prev => prev.map(j => j.id === updatedJob.id ? updatedJob : j));
+        setLastRealtimeUpdate(new Date());
+      },
+      onJobDelete: (deletedId) => {
+        if (!isMounted) return;
+        setJobs(prev => prev.filter(j => j.id !== deletedId));
+        setLastRealtimeUpdate(new Date());
+      },
+      onHousingInsert: (newHousing) => {
+        if (!isMounted) return;
+        setHousing(prev => prev.some(h => h.id === newHousing.id) ? prev.map(h => h.id === newHousing.id ? newHousing : h) : [newHousing, ...prev]);
+        setLastRealtimeUpdate(new Date());
+      },
+      onHousingUpdate: (updatedHousing) => {
+        if (!isMounted) return;
+        setHousing(prev => prev.map(h => h.id === updatedHousing.id ? updatedHousing : h));
+        setLastRealtimeUpdate(new Date());
+      },
+      onHousingDelete: (deletedId) => {
+        if (!isMounted) return;
+        setHousing(prev => prev.filter(h => h.id !== deletedId));
+        setLastRealtimeUpdate(new Date());
+      },
+      onOfficeInsert: (newOffice) => {
+        if (!isMounted) return;
+        setRecruitmentOffices(prev => prev.some(o => o.id === newOffice.id) ? prev.map(o => o.id === newOffice.id ? newOffice : o) : [newOffice, ...prev]);
+        setLastRealtimeUpdate(new Date());
+      },
+      onOfficeUpdate: (updatedOffice) => {
+        if (!isMounted) return;
+        setRecruitmentOffices(prev => prev.map(o => o.id === updatedOffice.id ? updatedOffice : o));
+        setLastRealtimeUpdate(new Date());
+      },
+      onOfficeDelete: (deletedId) => {
+        if (!isMounted) return;
+        setRecruitmentOffices(prev => prev.filter(o => o.id !== deletedId));
+        setLastRealtimeUpdate(new Date());
+      },
+      onAdInsert: (newAd) => {
+        if (!isMounted) return;
+        setAds(prev => prev.some(a => a.id === newAd.id) ? prev.map(a => a.id === newAd.id ? newAd : a) : [newAd, ...prev]);
+        setLastRealtimeUpdate(new Date());
+      },
+      onAdUpdate: (updatedAd) => {
+        if (!isMounted) return;
+        setAds(prev => prev.map(a => a.id === updatedAd.id ? updatedAd : a));
+        setLastRealtimeUpdate(new Date());
+      },
+      onAdDelete: (deletedId) => {
+        if (!isMounted) return;
+        setAds(prev => prev.filter(a => a.id !== deletedId));
+        setLastRealtimeUpdate(new Date());
+      },
+      onReportInsert: (newReport) => {
+        if (!isMounted) return;
+        setReports(prev => prev.some(r => r.id === newReport.id) ? prev.map(r => r.id === newReport.id ? newReport : r) : [newReport, ...prev]);
+        setLastRealtimeUpdate(new Date());
+      },
+      onReportUpdate: (updatedReport) => {
+        if (!isMounted) return;
+        setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
+        setLastRealtimeUpdate(new Date());
+      },
+      onReportDelete: (deletedId) => {
+        if (!isMounted) return;
+        setReports(prev => prev.filter(r => r.id !== deletedId));
+        setLastRealtimeUpdate(new Date());
+      },
+      onModeratorInsert: (newMod) => {
+        if (!isMounted) return;
+        setModerators(prev => prev.some(m => m.id === newMod.id) ? prev.map(m => m.id === newMod.id ? newMod : m) : [newMod, ...prev]);
+        setLastRealtimeUpdate(new Date());
+      },
+      onModeratorUpdate: (updatedMod) => {
+        if (!isMounted) return;
+        setModerators(prev => prev.map(m => m.id === updatedMod.id ? updatedMod : m));
+        setLastRealtimeUpdate(new Date());
+      },
+      onModeratorDelete: (deletedId) => {
+        if (!isMounted) return;
+        setModerators(prev => prev.filter(m => m.id !== deletedId));
+        setLastRealtimeUpdate(new Date());
       }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
     };
-    loadFromSupabase();
-    return () => { isMounted = false; };
   }, []);
 
   useEffect(() => {
@@ -537,10 +670,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString().split('T')[0]
     };
     setModerators(prev => [newMod, ...prev]);
+    upsertModeratorInSupabase(newMod);
   };
 
   const updateModerator = (id: string, updates: Partial<Moderator>) => {
-    setModerators(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+    setModerators(prev => {
+      const updated = prev.map(m => m.id === id ? { ...m, ...updates } : m);
+      const target = updated.find(m => m.id === id);
+      if (target) upsertModeratorInSupabase(target);
+      return updated;
+    });
     if (currentAdminSession?.moderatorId === id) {
       setCurrentAdminSession(prev => prev ? {
         ...prev,
@@ -553,13 +692,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteModerator = (id: string) => {
     setModerators(prev => prev.filter(m => m.id !== id));
+    deleteModeratorFromSupabase(id);
     if (currentAdminSession?.moderatorId === id) {
       adminLogout();
     }
   };
 
   const toggleModeratorActive = (id: string) => {
-    setModerators(prev => prev.map(m => m.id === id ? { ...m, active: !m.active } : m));
+    setModerators(prev => {
+      const updated = prev.map(m => m.id === id ? { ...m, active: !m.active } : m);
+      const target = updated.find(m => m.id === id);
+      if (target) upsertModeratorInSupabase(target);
+      return updated;
+    });
   };
 
   const canAccess = (permission: keyof ModeratorPermissions): boolean => {
@@ -860,6 +1005,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteOffice,
         updateReportStatus,
         resetToDefaultData,
+        realtimeStatus,
+        lastRealtimeUpdate,
+        refreshFromSupabase,
         t
       }}
     >

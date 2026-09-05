@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Job, HousingListing, RecruitmentOffice, UserReport, AdItem } from '../types';
+import { Job, HousingListing, RecruitmentOffice, UserReport, AdItem, Moderator } from '../types';
 
 export const SUPABASE_URL = 
   import.meta.env.VITE_SUPABASE_URL || 
@@ -10,6 +10,128 @@ export const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96dWN3cXV6aWNoaWx1YmpvenV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MTQ3NTQsImV4cCI6MjEwNDA5MDc1NH0.CBVvkiJzsysSEAjRhYhn9vWl4eArcS7lMfB9vRstoWo';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/**
+ * Row to Model Mappers
+ */
+export function mapJobRow(row: any): Job {
+  return {
+    id: row.id,
+    title: row.title,
+    company: row.company,
+    location: row.location,
+    category: row.category,
+    employmentType: row.employment_type || 'Full Time',
+    experience: row.experience || 'Entry Level',
+    salary: row.salary,
+    source: row.source || 'Direct',
+    sourceUrl: row.source_url || '#',
+    dateFound: row.date_found || new Date().toISOString().split('T')[0],
+    status: row.status || 'active',
+    description: row.description || '',
+    requirements: Array.isArray(row.requirements) ? row.requirements : (row.requirements ? [row.requirements] : []),
+    featured: Boolean(row.featured)
+  };
+}
+
+export function mapHousingRow(row: any): HousingListing {
+  return {
+    id: row.id,
+    title: row.title,
+    type: row.type,
+    price: Number(row.price),
+    area: row.area,
+    address: row.address,
+    nearMetro: Boolean(row.near_metro),
+    metroStation: row.metro_station,
+    metroWalkMinutes: row.metro_walk_minutes ? Number(row.metro_walk_minutes) : undefined,
+    verificationStatus: row.verification_status || 'check_before_payment',
+    verificationNote: row.verification_note || '',
+    billsIncluded: Boolean(row.bills_included),
+    images: Array.isArray(row.images) ? row.images : [],
+    contactPhone: row.contact_phone || '',
+    whatsapp: row.whatsapp || '',
+    amenities: Array.isArray(row.amenities) ? row.amenities : [],
+    gender: row.gender || 'any',
+    description: row.description || '',
+    datePosted: row.date_posted || new Date().toISOString().split('T')[0]
+  };
+}
+
+export function mapOfficeRow(row: any): RecruitmentOffice {
+  return {
+    id: row.id,
+    name: row.name,
+    address: row.address,
+    area: row.area,
+    phone: row.phone,
+    website: row.website,
+    googleMapsUrl: row.google_maps_url,
+    category: row.category,
+    specializations: Array.isArray(row.specializations) ? row.specializations : [],
+    rating: row.rating ? Number(row.rating) : undefined,
+    reviewsCount: row.reviews_count ? Number(row.reviews_count) : undefined,
+    openingHours: row.opening_hours,
+    verificationLabel: row.verification_label || 'معتمد رسمياً',
+    notes: row.notes,
+    coordinates: Array.isArray(row.coordinates) ? [row.coordinates[0], row.coordinates[1]] : [25.2048, 55.2708]
+  };
+}
+
+export function mapAdRow(row: any): AdItem {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    placement: row.placement,
+    imageUrl: row.image_url,
+    ctaText: row.cta_text,
+    ctaLink: row.cta_link,
+    badge: row.badge,
+    active: Boolean(row.active),
+    clicks: Number(row.clicks || 0),
+    impressions: Number(row.impressions || 0),
+    bgStyle: row.bg_style || 'dark',
+    createdAt: row.created_at || new Date().toISOString()
+  };
+}
+
+export function mapReportRow(row: any): UserReport {
+  return {
+    id: row.id,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    targetTitle: row.target_title,
+    reason: row.reason,
+    details: row.details,
+    contactEmail: row.contact_email,
+    createdAt: row.created_at,
+    status: row.status || 'new'
+  };
+}
+
+export function mapModeratorRow(row: any): Moderator {
+  return {
+    id: row.id,
+    name: row.name,
+    username: row.username,
+    password: row.password,
+    permissions: typeof row.permissions === 'object' && row.permissions !== null
+      ? row.permissions
+      : {
+          manageJobs: true,
+          manageHousing: true,
+          manageOffices: true,
+          manageAds: false,
+          manageReports: true,
+          viewAnalytics: false
+        },
+    active: Boolean(row.active),
+    createdAt: row.created_at || new Date().toISOString(),
+    lastLogin: row.last_login,
+    notes: row.notes
+  };
+}
 
 /**
  * Test connectivity with Supabase
@@ -378,12 +500,203 @@ export async function updateReportStatusInSupabase(id: string, status: 'new' | '
 }
 
 // -------------------------------------------------------------
+// MODERATORS (Supabase Integration)
+// -------------------------------------------------------------
+export async function fetchModeratorsFromSupabase(): Promise<Moderator[] | null> {
+  try {
+    const { data, error } = await supabase
+      .from('moderators')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) return null;
+    return data.map(mapModeratorRow);
+  } catch {
+    return null;
+  }
+}
+
+export async function upsertModeratorInSupabase(mod: Moderator): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('moderators').upsert({
+      id: mod.id,
+      name: mod.name,
+      username: mod.username,
+      password: mod.password,
+      permissions: mod.permissions,
+      active: mod.active,
+      notes: mod.notes || '',
+      last_login: mod.lastLogin || null,
+      created_at: mod.createdAt
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteModeratorFromSupabase(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('moderators').delete().eq('id', id);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+// -------------------------------------------------------------
+// SUPABASE REALTIME SUBSCRIPTIONS
+// -------------------------------------------------------------
+export interface RealtimeHandlers {
+  onJobInsert?: (job: Job) => void;
+  onJobUpdate?: (job: Job) => void;
+  onJobDelete?: (id: string) => void;
+
+  onHousingInsert?: (housing: HousingListing) => void;
+  onHousingUpdate?: (housing: HousingListing) => void;
+  onHousingDelete?: (id: string) => void;
+
+  onOfficeInsert?: (office: RecruitmentOffice) => void;
+  onOfficeUpdate?: (office: RecruitmentOffice) => void;
+  onOfficeDelete?: (id: string) => void;
+
+  onAdInsert?: (ad: AdItem) => void;
+  onAdUpdate?: (ad: AdItem) => void;
+  onAdDelete?: (id: string) => void;
+
+  onReportInsert?: (report: UserReport) => void;
+  onReportUpdate?: (report: UserReport) => void;
+  onReportDelete?: (id: string) => void;
+
+  onModeratorInsert?: (mod: Moderator) => void;
+  onModeratorUpdate?: (mod: Moderator) => void;
+  onModeratorDelete?: (id: string) => void;
+
+  onStatusChange?: (status: 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED' | 'ERROR') => void;
+}
+
+export function subscribeToSupabaseRealtime(handlers: RealtimeHandlers): () => void {
+  handlers.onStatusChange?.('CONNECTING');
+
+  const channel = supabase.channel('dubai_start_realtime_channel', {
+    config: {
+      broadcast: { self: true }
+    }
+  });
+
+  // 1. Jobs Realtime Listener
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'jobs' },
+    (payload) => {
+      if (payload.eventType === 'INSERT' && payload.new) {
+        handlers.onJobInsert?.(mapJobRow(payload.new));
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        handlers.onJobUpdate?.(mapJobRow(payload.new));
+      } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+        handlers.onJobDelete?.(payload.old.id);
+      }
+    }
+  );
+
+  // 2. Housing Realtime Listener
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'housing' },
+    (payload) => {
+      if (payload.eventType === 'INSERT' && payload.new) {
+        handlers.onHousingInsert?.(mapHousingRow(payload.new));
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        handlers.onHousingUpdate?.(mapHousingRow(payload.new));
+      } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+        handlers.onHousingDelete?.(payload.old.id);
+      }
+    }
+  );
+
+  // 3. Recruitment Offices Realtime Listener
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'recruitment_offices' },
+    (payload) => {
+      if (payload.eventType === 'INSERT' && payload.new) {
+        handlers.onOfficeInsert?.(mapOfficeRow(payload.new));
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        handlers.onOfficeUpdate?.(mapOfficeRow(payload.new));
+      } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+        handlers.onOfficeDelete?.(payload.old.id);
+      }
+    }
+  );
+
+  // 4. Ads Realtime Listener
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'ads' },
+    (payload) => {
+      if (payload.eventType === 'INSERT' && payload.new) {
+        handlers.onAdInsert?.(mapAdRow(payload.new));
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        handlers.onAdUpdate?.(mapAdRow(payload.new));
+      } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+        handlers.onAdDelete?.(payload.old.id);
+      }
+    }
+  );
+
+  // 5. User Reports Realtime Listener
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'user_reports' },
+    (payload) => {
+      if (payload.eventType === 'INSERT' && payload.new) {
+        handlers.onReportInsert?.(mapReportRow(payload.new));
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        handlers.onReportUpdate?.(mapReportRow(payload.new));
+      } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+        handlers.onReportDelete?.(payload.old.id);
+      }
+    }
+  );
+
+  // 6. Moderators Realtime Listener
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'moderators' },
+    (payload) => {
+      if (payload.eventType === 'INSERT' && payload.new) {
+        handlers.onModeratorInsert?.(mapModeratorRow(payload.new));
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        handlers.onModeratorUpdate?.(mapModeratorRow(payload.new));
+      } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+        handlers.onModeratorDelete?.(payload.old.id);
+      }
+    }
+  );
+
+  channel.subscribe((status, err) => {
+    if (status === 'SUBSCRIBED') {
+      handlers.onStatusChange?.('CONNECTED');
+    } else if (status === 'CLOSED' || status === 'TIMED_OUT') {
+      handlers.onStatusChange?.('DISCONNECTED');
+    } else if (status === 'CHANNEL_ERROR') {
+      console.warn('Supabase Realtime Channel Error:', err);
+      handlers.onStatusChange?.('ERROR');
+    }
+  });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+// -------------------------------------------------------------
 // READY SQL SCRIPT FOR SUPABASE SQL EDITOR
 // -------------------------------------------------------------
 export const SUPABASE_SQL_SCHEMA = `-- ========================================================
--- دبي ستارت - سكيما قاعدة بيانات Supabase الرسمية
--- انسخ هذا الكود والصقه في نافذة SQL Editor في لوحة تحكم Supabase
--- ثم اضغط RUN
+-- دبي ستارت - سكيما قاعدة بيانات Supabase الرسمية (مع تفعيل التزامن اللحظي Realtime)
+-- انسخ هذا الكود والصقه بالكامل في نافذة SQL Editor في لوحة تحكم Supabase
+-- ثم اضغط RUN لتجهيز الجداول وسياسات الحماية وتفعيل التزامن اللحظي
 -- ========================================================
 
 -- 1. جدول الوظائف (Jobs)
@@ -480,12 +793,34 @@ CREATE TABLE IF NOT EXISTS public.user_reports (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. تفعيل الحماية RLS وسياسات القراءة والكتابة العامة
+-- 6. جدول المشرفين (Moderators)
+CREATE TABLE IF NOT EXISTS public.moderators (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    permissions JSONB DEFAULT '{"manageJobs":true,"manageHousing":true,"manageOffices":true,"manageAds":false,"manageReports":true,"viewAnalytics":false}'::jsonb,
+    active BOOLEAN DEFAULT TRUE,
+    notes TEXT DEFAULT '',
+    last_login TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 7. تفعيل REPLICA IDENTITY FULL لضمان إرسال بيانات السجلات في أحداث الحذف والتحديث
+ALTER TABLE public.jobs REPLICA IDENTITY FULL;
+ALTER TABLE public.housing REPLICA IDENTITY FULL;
+ALTER TABLE public.recruitment_offices REPLICA IDENTITY FULL;
+ALTER TABLE public.ads REPLICA IDENTITY FULL;
+ALTER TABLE public.user_reports REPLICA IDENTITY FULL;
+ALTER TABLE public.moderators REPLICA IDENTITY FULL;
+
+-- 8. تفعيل الحماية RLS وسياسات الوصول العامة
 ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.housing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recruitment_offices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.moderators ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public read access on jobs" ON public.jobs FOR SELECT USING (true);
 CREATE POLICY "Allow public write access on jobs" ON public.jobs FOR ALL USING (true);
@@ -501,4 +836,19 @@ CREATE POLICY "Allow public write access on ads" ON public.ads FOR ALL USING (tr
 
 CREATE POLICY "Allow public read access on user_reports" ON public.user_reports FOR SELECT USING (true);
 CREATE POLICY "Allow public write access on user_reports" ON public.user_reports FOR ALL USING (true);
+
+CREATE POLICY "Allow public read access on moderators" ON public.moderators FOR SELECT USING (true);
+CREATE POLICY "Allow public write access on moderators" ON public.moderators FOR ALL USING (true);
+
+-- 9. تفعيل خاصية التزامن اللحظي (Supabase Realtime Publication)
+-- هذا الأمر يسمح لجميع التعديلات والإضافات بالوصول فوراً عبر WebSockets لكافة المتصفحين والمديرين
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.jobs, public.housing, public.recruitment_offices, public.ads, public.user_reports, public.moderators;
+  EXCEPTION
+    WHEN duplicate_object THEN NULL;
+    WHEN others THEN NULL;
+  END;
+END $$;
 `;

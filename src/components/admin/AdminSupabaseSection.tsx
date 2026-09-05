@@ -11,7 +11,9 @@ import {
   Server, 
   Table, 
   ShieldCheck,
-  Zap
+  Zap,
+  Radio,
+  Users
 } from 'lucide-react';
 import { 
   SUPABASE_URL, 
@@ -20,18 +22,29 @@ import {
   upsertJobInSupabase,
   upsertHousingInSupabase,
   upsertOfficeInSupabase,
-  upsertAdInSupabase
+  upsertAdInSupabase,
+  upsertModeratorInSupabase
 } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
 
 export const AdminSupabaseSection: React.FC = () => {
-  const { jobs, housing, recruitmentOffices, ads } = useApp();
+  const { 
+    jobs, 
+    housing, 
+    recruitmentOffices, 
+    ads, 
+    moderators,
+    realtimeStatus, 
+    lastRealtimeUpdate, 
+    refreshFromSupabase 
+  } = useApp();
   
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'checking' | 'connected' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const checkConnection = async () => {
     setConnectionStatus('checking');
@@ -50,15 +63,23 @@ export const AdminSupabaseSection: React.FC = () => {
     checkConnection();
   }, []);
 
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshFromSupabase();
+    await checkConnection();
+    setIsRefreshing(false);
+  };
+
   const handleSyncAllToSupabase = async () => {
     setIsSyncing(true);
-    setSyncProgress('جارٍ بدء المزامنة مع Supabase...');
+    setSyncProgress('جارٍ بدء المزامنة الشاملة مع Supabase...');
 
     try {
       let jobCount = 0;
       let housingCount = 0;
       let officeCount = 0;
       let adCount = 0;
+      let modCount = 0;
 
       setSyncProgress(`مزامنة الوظائف (${jobs.length})...`);
       for (const j of jobs) {
@@ -66,7 +87,7 @@ export const AdminSupabaseSection: React.FC = () => {
         jobCount++;
       }
 
-      setSyncProgress(`مزامنة السكن (${housing.length})...`);
+      setSyncProgress(`مزامنة عقارات السكن (${housing.length})...`);
       for (const h of housing) {
         await upsertHousingInSupabase(h);
         housingCount++;
@@ -84,11 +105,17 @@ export const AdminSupabaseSection: React.FC = () => {
         adCount++;
       }
 
+      setSyncProgress(`مزامنة المشرفين (${moderators.length})...`);
+      for (const m of moderators) {
+        await upsertModeratorInSupabase(m);
+        modCount++;
+      }
+
       setSyncProgress(
-        `اكتملت المزامنة بنجاح! تم رفع: ${jobCount} وظيفة، ${housingCount} سكن، ${officeCount} مكتب، ${adCount} إعلان إلى Supabase.`
+        `اكتملت المزامنة بنجاح! تم رفع: ${jobCount} وظيفة، ${housingCount} سكن، ${officeCount} مكتب، ${adCount} إعلان، ${modCount} مشرف إلى Supabase.`
       );
     } catch (err: any) {
-      setSyncProgress(`حدث خطأ أثناء المزامنة: ${err?.message || 'تأكد من إنشاء الجداول أولاً'}`);
+      setSyncProgress(`حدث خطأ أثناء المزامنة: ${err?.message || 'تأكد من تشغيل كود SQL أولاً'}`);
     } finally {
       setIsSyncing(false);
     }
@@ -112,19 +139,19 @@ export const AdminSupabaseSection: React.FC = () => {
               <Database className="w-7 h-7" />
             </div>
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-xl sm:text-2xl font-black text-white">
                   قاعدة بيانات Supabase الرسمية
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  PostgreSQL Cloud
+                  PostgreSQL Realtime
                 </span>
               </div>
               <p className="text-sm text-slate-400 mt-1">
-                مشروع Supabase نشط ومربوط بالمنصة للحفظ السحابي والمزامنة الفورية.
+                مشروع Supabase مربوط بالكامل مع ميزة التزامن اللحظي (Real-time WebSockets) لكافة الجداول.
               </p>
-              <div className="mt-2 text-xs font-mono text-slate-400 flex items-center gap-2">
+              <div className="mt-2 text-xs font-mono text-slate-400 flex flex-wrap items-center gap-2">
                 <span className="text-slate-500">مشروعك:</span>
                 <span className="text-emerald-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
                   {SUPABASE_URL}
@@ -135,19 +162,19 @@ export const AdminSupabaseSection: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={checkConnection}
-              disabled={connectionStatus === 'checking'}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all flex items-center gap-2 border border-slate-700 disabled:opacity-50"
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all flex items-center gap-2 border border-slate-700 disabled:opacity-50 cursor-pointer"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${connectionStatus === 'checking' ? 'animate-spin' : ''}`} />
-              <span>فحص الاتصال</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>تحديث البيانات الآن</span>
             </button>
 
             <a
               href="https://supabase.com/dashboard/project/ozucwquzichilubjozuw/sql"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+              className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer"
             >
               <span>فتح لوحة Supabase</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -155,32 +182,35 @@ export const AdminSupabaseSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Live Status Bar */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center gap-3">
-          {connectionStatus === 'checking' && (
-            <div className="flex items-center gap-2 text-xs text-amber-400 font-semibold">
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>{statusMessage}</span>
+        {/* Realtime Live Status Bar */}
+        <div className="mt-6 pt-5 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${
+              realtimeStatus === 'connected' ? 'bg-emerald-400 animate-ping' :
+              realtimeStatus === 'connecting' ? 'bg-amber-400 animate-pulse' :
+              'bg-slate-600'
+            }`} />
+            <div className="text-xs">
+              <span className="text-slate-400">حالة التزامن اللحظي (Realtime Channel): </span>
+              <span className={`font-bold ${
+                realtimeStatus === 'connected' ? 'text-emerald-400' :
+                realtimeStatus === 'connecting' ? 'text-amber-400' :
+                'text-slate-400'
+              }`}>
+                {realtimeStatus === 'connected' ? '🟢 متصل لحظياً (WebSockets Live)' :
+                 realtimeStatus === 'connecting' ? '🟡 جارٍ الاتصال بقناة Realtime...' :
+                 realtimeStatus === 'error' ? '🔴 خطأ في القناة' : '⚪ غير متصل'}
+              </span>
             </div>
-          )}
-          {connectionStatus === 'connected' && (
-            <div className="flex items-center gap-2 text-xs text-emerald-400 font-semibold">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{statusMessage}</span>
-            </div>
-          )}
-          {connectionStatus === 'error' && (
-            <div className="flex items-center gap-2 text-xs text-rose-400 font-semibold">
-              <AlertCircle className="w-4 h-4" />
-              <span>{statusMessage}</span>
-            </div>
-          )}
-          {connectionStatus === 'idle' && (
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <Server className="w-4 h-4" />
-              <span>جاهز للاتصال بـ Supabase</span>
-            </div>
-          )}
+          </div>
+
+          <div className="text-xs text-slate-400 sm:text-left flex items-center sm:justify-end gap-2">
+            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <span>آخر تزامن لحظي: </span>
+            <span className="font-mono text-slate-200">
+              {lastRealtimeUpdate ? lastRealtimeUpdate.toLocaleTimeString('ar-EG') : 'تم التحميل عند بدء التطبيق'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -195,13 +225,13 @@ export const AdminSupabaseSection: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">مزامنة البيانات الحالية</h3>
-                <p className="text-xs text-slate-400">رفع الوظائف والسكن والإعلانات الحالية إلى Supabase</p>
+                <p className="text-xs text-slate-400">رفع الوظائف والسكن والمشرفين والإعلانات إلى Supabase</p>
               </div>
             </div>
 
             <div className="space-y-2.5 my-4 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 text-xs">
               <div className="flex items-center justify-between text-slate-300">
-                <span>الوظائف الجاهزة للرفع:</span>
+                <span>الوظائف الشاغرة:</span>
                 <span className="font-mono font-bold text-amber-400">{jobs.length} وظيفة</span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
@@ -213,7 +243,11 @@ export const AdminSupabaseSection: React.FC = () => {
                 <span className="font-mono font-bold text-amber-400">{recruitmentOffices.length} مكتب</span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
-                <span>الإعلانات:</span>
+                <span>المشرفين والصلاحيات:</span>
+                <span className="font-mono font-bold text-amber-400">{moderators.length} مشرف</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-300">
+                <span>الإعلانات الترويجية:</span>
                 <span className="font-mono font-bold text-amber-400">{ads.length} إعلان</span>
               </div>
             </div>
@@ -228,7 +262,7 @@ export const AdminSupabaseSection: React.FC = () => {
           <button
             onClick={handleSyncAllToSupabase}
             disabled={isSyncing}
-            className="mt-5 w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-400/10 disabled:opacity-50"
+            className="mt-5 w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-400/10 disabled:opacity-50 cursor-pointer"
           >
             {isSyncing ? (
               <>
@@ -252,8 +286,8 @@ export const AdminSupabaseSection: React.FC = () => {
                 <Table className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">جداول قاعدة البيانات</h3>
-                <p className="text-xs text-slate-400">هيكل الجداول المهيأة داخل Supabase</p>
+                <h3 className="text-base font-bold text-white">جداول قاعدة البيانات وقنوات Realtime</h3>
+                <p className="text-xs text-slate-400">جميع الجداول مراقبة للتحديث الفوري لحظة بلحظة</p>
               </div>
             </div>
 
@@ -262,6 +296,7 @@ export const AdminSupabaseSection: React.FC = () => {
                 { name: 'jobs', label: 'الوظائف الشاغرة', icon: Zap },
                 { name: 'housing', label: 'خيارات السكن والمشاركة', icon: Zap },
                 { name: 'recruitment_offices', label: 'مكاتب التوظيف المعتمدة', icon: Zap },
+                { name: 'moderators', label: 'حسابات وصلاحيات المشرفين', icon: Users },
                 { name: 'ads', label: 'الإعلانات والبانرات الترويجية', icon: Zap },
                 { name: 'user_reports', label: 'سجلات بلاغات الاحتيال', icon: ShieldCheck },
               ].map(t => (
@@ -271,9 +306,14 @@ export const AdminSupabaseSection: React.FC = () => {
                     <span className="font-mono font-bold text-white">{t.name}</span>
                     <span className="text-slate-400 text-[11px]">({t.label})</span>
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
-                    RLS مفعّل
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                      Realtime مفعّل
+                    </span>
+                    <span className="text-[10px] font-bold text-blue-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20">
+                      RLS
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -281,7 +321,7 @@ export const AdminSupabaseSection: React.FC = () => {
 
           <div className="text-[11px] text-slate-400 pt-3 border-t border-slate-800 flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>الجداول محمية عبر Row Level Security مع سياسات القراءة والكتابة العامة.</span>
+            <span>أي إضافة أو تعديل أو حذف في أي متصفح ينعكس فوراً دون الحاجة لإعادة تحميل الصفحة.</span>
           </div>
         </div>
       </div>
@@ -291,19 +331,19 @@ export const AdminSupabaseSection: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
             <h3 className="text-lg font-black text-white flex items-center gap-2">
-              <span>كود إنشاء الجداول (Supabase SQL Schema)</span>
-              <span className="text-xs font-normal text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
-                خطوة واحدة فقط
+              <span>كود إنشاء الجداول وتفعيل التزامن اللحظي (Supabase SQL Schema)</span>
+              <span className="text-xs font-normal text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/20">
+                شامل Realtime & Moderators
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              إذا لم تكن قد قمت بتشغيل السكربت بعد، انسخ الكود التالي وافتحه في <strong className="text-slate-200">SQL Editor</strong> في لوحة تحكم Supabase واضغط <strong className="text-emerald-400">RUN</strong>:
+              انسخ الكود التالي والصقه في <strong className="text-slate-200">SQL Editor</strong> في لوحة تحكم Supabase واضغط <strong className="text-emerald-400">RUN</strong>:
             </p>
           </div>
 
           <button
             onClick={copySqlToClipboard}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all flex items-center gap-2 border border-slate-700 self-start sm:self-auto shrink-0"
+            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all flex items-center gap-2 border border-slate-700 self-start sm:self-auto shrink-0 cursor-pointer"
           >
             {copiedSql ? (
               <>
