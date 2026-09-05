@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { AdPlacement } from '../../types';
-import { ExternalLink, Sparkles, ShieldCheck } from 'lucide-react';
+import { ExternalLink, Sparkles } from 'lucide-react';
+import { HtmlAdRenderer } from './HtmlAdRenderer';
 
 interface AdFeedCardProps {
   placement: AdPlacement;
@@ -13,12 +14,21 @@ export const AdFeedCard: React.FC<AdFeedCardProps> = ({ placement }) => {
   const ad = ads.find(a => a.placement === placement && a.active);
 
   useEffect(() => {
-    if (ad) {
+    if (ad && ad.adType !== 'html') {
       recordAdImpression(ad.id);
     }
-  }, [ad?.id]);
+  }, [ad?.id, ad?.adType]);
 
   if (!ad) return null;
+
+  // Custom HTML Ad
+  if (ad.adType === 'html' && ad.htmlCode) {
+    return (
+      <div className="col-span-full my-2">
+        <HtmlAdRenderer ad={ad} className="shadow-lg" />
+      </div>
+    );
+  }
 
   const handleClick = () => {
     recordAdClick(ad.id);

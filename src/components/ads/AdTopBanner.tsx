@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Sparkles, ExternalLink, X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
+import { HtmlAdRenderer } from './HtmlAdRenderer';
 
 export const AdTopBanner: React.FC = () => {
   const { ads, recordAdClick, recordAdImpression } = useApp();
@@ -10,12 +11,31 @@ export const AdTopBanner: React.FC = () => {
   const topAd = ads.find(a => a.placement === 'top_banner' && a.active);
 
   useEffect(() => {
-    if (topAd && !dismissed) {
+    if (topAd && !dismissed && topAd.adType !== 'html') {
       recordAdImpression(topAd.id);
     }
-  }, [topAd?.id, dismissed]);
+  }, [topAd?.id, topAd?.adType, dismissed]);
 
   if (!topAd || dismissed) return null;
+
+  // Custom HTML Ad
+  if (topAd.adType === 'html' && topAd.htmlCode) {
+    return (
+      <aside aria-label="إعلان ترويجي" className="relative z-40 bg-slate-950 border-b border-slate-800">
+        <div className="max-w-7xl mx-auto relative">
+          <HtmlAdRenderer ad={topAd} showBadge={false} />
+          <button
+            onClick={() => setDismissed(true)}
+            className="absolute top-1 end-2 p-1 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors z-20"
+            title="إغلاق الإعلان"
+            aria-label="إغلاق الإعلان"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </aside>
+    );
+  }
 
   const handleClick = () => {
     recordAdClick(topAd.id);

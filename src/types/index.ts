@@ -148,6 +148,8 @@ export interface AdItem {
   impressions: number;
   bgStyle?: 'gold' | 'emerald' | 'dark' | 'gradient';
   createdAt: string;
+  adType?: 'standard' | 'html';
+  htmlCode?: string;
 }
 
 export interface VisitorStats {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { MessageCircle, X, Sparkles } from 'lucide-react';
+import { MessageCircle, X } from 'lucide-react';
+import { HtmlAdRenderer } from './HtmlAdRenderer';
 
 export const AdFloatingBadge: React.FC = () => {
   const { ads, recordAdClick, recordAdImpression, activeTab } = useApp();
@@ -9,13 +10,32 @@ export const AdFloatingBadge: React.FC = () => {
   const floatingAd = ads.find(a => a.placement === 'floating_badge' && a.active);
 
   useEffect(() => {
-    if (floatingAd && !dismissed && activeTab !== 'admin') {
+    if (floatingAd && !dismissed && activeTab !== 'admin' && floatingAd.adType !== 'html') {
       recordAdImpression(floatingAd.id);
     }
-  }, [floatingAd?.id, dismissed, activeTab]);
+  }, [floatingAd?.id, floatingAd?.adType, dismissed, activeTab]);
 
   // Don't show inside admin or if no ad or dismissed
   if (activeTab === 'admin' || !floatingAd || dismissed) return null;
+
+  // Custom HTML Ad
+  if (floatingAd.adType === 'html' && floatingAd.htmlCode) {
+    return (
+      <div className="fixed bottom-20 sm:bottom-6 start-4 z-40 max-w-[280px] sm:max-w-xs animate-in fade-in slide-in-from-bottom-3 duration-300">
+        <div className="relative">
+          <button
+            onClick={() => setDismissed(true)}
+            className="absolute -top-2 -end-2 w-6 h-6 rounded-full bg-slate-900 border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs shadow z-20"
+            title="إغلاق"
+            aria-label="إغلاق"
+          >
+            <X className="w-3 h-3" />
+          </button>
+          <HtmlAdRenderer ad={floatingAd} className="shadow-2xl" />
+        </div>
+      </div>
+    );
+  }
 
   const handleClick = () => {
     recordAdClick(floatingAd.id);

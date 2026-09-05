@@ -82,16 +82,18 @@ export function mapAdRow(row: any): AdItem {
   return {
     id: row.id,
     title: row.title,
-    description: row.description,
+    description: row.description || '',
     placement: row.placement,
     imageUrl: row.image_url,
-    ctaText: row.cta_text,
-    ctaLink: row.cta_link,
+    ctaText: row.cta_text || 'تفاصيل الإعلان',
+    ctaLink: row.cta_link || '#',
     badge: row.badge,
     active: Boolean(row.active),
     clicks: Number(row.clicks || 0),
     impressions: Number(row.impressions || 0),
     bgStyle: row.bg_style || 'dark',
+    adType: row.ad_type || 'standard',
+    htmlCode: row.html_code || undefined,
     createdAt: row.created_at || new Date().toISOString()
   };
 }
@@ -404,16 +406,18 @@ export async function upsertAdInSupabase(ad: AdItem): Promise<boolean> {
     const { error } = await supabase.from('ads').upsert({
       id: ad.id,
       title: ad.title,
-      description: ad.description,
+      description: ad.description || '',
       placement: ad.placement,
-      image_url: ad.imageUrl,
-      cta_text: ad.ctaText,
-      cta_link: ad.ctaLink,
-      badge: ad.badge,
+      image_url: ad.imageUrl || null,
+      cta_text: ad.ctaText || '',
+      cta_link: ad.ctaLink || '',
+      badge: ad.badge || null,
       active: ad.active,
       clicks: ad.clicks,
       impressions: ad.impressions,
-      bg_style: ad.bgStyle,
+      bg_style: ad.bgStyle || 'dark',
+      ad_type: ad.adType || 'standard',
+      html_code: ad.htmlCode || null,
       created_at: ad.createdAt
     });
     return !error;
@@ -767,16 +771,18 @@ CREATE TABLE IF NOT EXISTS public.recruitment_offices (
 CREATE TABLE IF NOT EXISTS public.ads (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
-    description TEXT NOT NULL,
+    description TEXT DEFAULT '',
     placement TEXT NOT NULL,
     image_url TEXT,
-    cta_text TEXT NOT NULL,
-    cta_link TEXT NOT NULL,
+    cta_text TEXT DEFAULT '',
+    cta_link TEXT DEFAULT '',
     badge TEXT,
     active BOOLEAN DEFAULT TRUE,
     clicks INTEGER DEFAULT 0,
     impressions INTEGER DEFAULT 0,
     bg_style TEXT DEFAULT 'dark',
+    ad_type TEXT DEFAULT 'standard',
+    html_code TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

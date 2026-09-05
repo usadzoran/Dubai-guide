@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { ExternalLink, Sparkles, MessageCircle, Star } from 'lucide-react';
+import { ExternalLink, Sparkles } from 'lucide-react';
+import { HtmlAdRenderer } from './HtmlAdRenderer';
 
 export const AdHeroBanner: React.FC = () => {
   const { ads, recordAdClick, recordAdImpression } = useApp();
@@ -8,12 +9,21 @@ export const AdHeroBanner: React.FC = () => {
   const heroAd = ads.find(a => a.placement === 'home_hero' && a.active);
 
   useEffect(() => {
-    if (heroAd) {
+    if (heroAd && heroAd.adType !== 'html') {
       recordAdImpression(heroAd.id);
     }
-  }, [heroAd?.id]);
+  }, [heroAd?.id, heroAd?.adType]);
 
   if (!heroAd) return null;
+
+  // Custom HTML Ad
+  if (heroAd.adType === 'html' && heroAd.htmlCode) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-6">
+        <HtmlAdRenderer ad={heroAd} className="shadow-xl" />
+      </div>
+    );
+  }
 
   const handleClick = () => {
     recordAdClick(heroAd.id);
