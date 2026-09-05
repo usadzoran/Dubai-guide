@@ -37,6 +37,7 @@ import {
   deleteAdFromSupabase,
   insertReportInSupabase,
   updateReportStatusInSupabase,
+  deleteReportFromSupabase,
   upsertModeratorInSupabase,
   deleteModeratorFromSupabase,
   subscribeToSupabaseRealtime
@@ -142,7 +143,8 @@ interface AppContextType {
   updateOffice: (id: string, updates: Partial<RecruitmentOffice>) => void;
   deleteOffice: (id: string) => void;
 
-  updateReportStatus: (id: string, status: 'new' | 'reviewed' | 'dismissed') => void;
+  updateReportStatus: (id: string, status: 'new' | 'reviewed' | 'accepted' | 'dismissed') => void;
+  deleteReport: (id: string) => void;
   resetToDefaultData: () => void;
 
   // Realtime Database & Supabase Sync
@@ -207,7 +209,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         details: 'تواصل معي شخص يزعم أنه مسؤول توظيف في شركة طيران وطلب تحويل 500 درهم رسوم زي موحد وتصريح.',
         contactEmail: 'applicant@example.com',
         createdAt: '2026-03-01',
-        status: 'reviewed'
+        status: 'new'
+      },
+      {
+        id: 'rep-2',
+        targetType: 'housing',
+        targetId: 'item-2',
+        targetTitle: 'إعلان سكن وهمي يطلب عربون عبر تحويل رصيد',
+        reason: 'fake_listing',
+        details: 'طلب صاحب الإعلان إرسال عربون 300 درهم قبل المعاينة بحجة حجز السرير، وعند الحضور إلى الموقع تبيّن أن العقار غير متاح.',
+        contactEmail: 'user_dubai@gmail.com',
+        createdAt: '2026-03-03',
+        status: 'accepted',
+        acceptedAt: '2026-03-04'
       }
     ];
     const saved = safeGetItem('dubai_start_reports');
@@ -922,9 +936,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteOfficeFromSupabase(id);
   };
 
-  const updateReportStatus = (id: string, status: 'new' | 'reviewed' | 'dismissed') => {
-    setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+  const updateReportStatus = (id: string, status: 'new' | 'reviewed' | 'accepted' | 'dismissed') => {
+    setReports(prev => {
+      const updated = prev.map(r => r.id === id ? { 
+        ...r, 
+        status,
+        acceptedAt: status === 'accepted' ? new Date().toISOString().split('T')[0] : r.acceptedAt 
+      } : r);
+      safeSetItem('dubai_start_reports', JSON.stringify(updated));
+      return updated;
+    });
     updateReportStatusInSupabase(id, status);
+  };
+
+  const deleteReport = (id: string) => {
+    setReports(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      safeSetItem('dubai_start_reports', JSON.stringify(updated));
+      return updated;
+    });
+    deleteReportFromSupabase(id);
   };
 
   const resetToDefaultData = () => {
@@ -1004,6 +1035,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateOffice,
         deleteOffice,
         updateReportStatus,
+        deleteReport,
         resetToDefaultData,
         realtimeStatus,
         lastRealtimeUpdate,

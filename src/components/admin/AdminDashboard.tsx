@@ -24,7 +24,11 @@ import {
   Database,
   Users,
   UserCheck,
-  Crown
+  Crown,
+  ShieldAlert,
+  Filter,
+  Check,
+  Mail
 } from 'lucide-react';
 import { Job, HousingListing, RecruitmentOffice, UserReport } from '../../types';
 import { AdminVisitorsSection } from './AdminVisitorsSection';
@@ -43,6 +47,7 @@ export const AdminDashboard: React.FC = () => {
     recruitmentOffices,
     reports,
     updateReportStatus,
+    deleteReport,
     resetToDefaultData,
     setActiveTab,
     ads,
@@ -100,6 +105,9 @@ export const AdminDashboard: React.FC = () => {
   // Security password state
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [passwordToast, setPasswordToast] = useState<string | null>(null);
+
+  // Reports Filter State
+  const [reportFilter, setReportFilter] = useState<'all' | 'new' | 'accepted' | 'reviewed'>('all');
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -197,6 +205,8 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const pendingReportsCount = reports.filter(r => r.status === 'new').length;
+  const acceptedReportsCount = reports.filter(r => r.status === 'accepted').length;
+  const reviewedReportsCount = reports.filter(r => r.status === 'reviewed' || r.status === 'dismissed').length;
   const activeAdsCount = ads.filter(a => a.active).length;
 
   return (
@@ -626,67 +636,374 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB: REPORTS */}
       {activeAdminTab === 'reports' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">سجل البلاغات والشكاوى الواردة من المستخدمين</h3>
-            <span className="text-xs text-slate-400">{reports.length} بلاغ مسجل</span>
+          {/* Header Bar */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-5 sm:p-6 rounded-3xl shadow-xl">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <span className="px-3 py-1 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>مركز مكافحة الاحتيال والشكاوى</span>
+                </span>
+                <span className="text-xs text-slate-400">({reports.length} بلاغ مسجل في المنصة)</span>
+              </div>
+              <h3 className="text-xl font-black text-white">سجل دعاوى وبلاغات الاحتيال الواردة</h3>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                يمكنك فحص البلاغات وقبول دعوى الاحتيال وتثبيتها، ثم محوها من القائمة نهائياً بعد استكمال المراجعة أو حذف مصدر الإعلان المخالف.
+              </p>
+            </div>
+
+            {/* Quick Action: Clear all accepted */}
+            {acceptedReportsCount > 0 && (
+              <button
+                onClick={() => {
+                  const acceptedList = reports.filter(r => r.status === 'accepted');
+                  if (window.confirm(`هل أنت متأكد من محو كافة دعاوى الاحتيال المقبولة (${acceptedList.length} دعوى) من القائمة نهائياً؟`)) {
+                    acceptedList.forEach(r => deleteReport(r.id));
+                    showNotification(`تم محو ${acceptedList.length} دعوى احتيال مقبولة من القائمة بنجاح.`);
+                  }
+                }}
+                className="px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 transition-all cursor-pointer shrink-0"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>محو جميع الدعاوى المقبولة ({acceptedReportsCount})</span>
+              </button>
+            )}
           </div>
 
+          {/* Filter Pills Bar */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => setReportFilter('all')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                reportFilter === 'all'
+                  ? 'bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-400/20'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800'
+              }`}
+            >
+              الكل ({reports.length})
+            </button>
+
+            <button
+              onClick={() => setReportFilter('new')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                reportFilter === 'new'
+                  ? 'bg-rose-500 text-white font-black shadow-md shadow-rose-500/20'
+                  : 'bg-slate-900 hover:bg-slate-800 text-rose-400 border border-slate-800'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>قيد البت والمراجعة ({pendingReportsCount})</span>
+            </button>
+
+            <button
+              onClick={() => setReportFilter('accepted')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                reportFilter === 'accepted'
+                  ? 'bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20'
+                  : 'bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-800'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>دعاوى احتيال مقبولة ومؤكدة ({acceptedReportsCount})</span>
+            </button>
+
+            <button
+              onClick={() => setReportFilter('reviewed')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                reportFilter === 'reviewed'
+                  ? 'bg-sky-500 text-white font-black shadow-md shadow-sky-500/20'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-800'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>مراجعة / مؤرشفة ({reviewedReportsCount})</span>
+            </button>
+          </div>
+
+          {/* Reports List */}
           <div className="space-y-4">
-            {reports.map((report) => (
-              <div 
-                key={report.id} 
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      report.status === 'new' 
-                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
-                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    }`}>
-                      {report.status === 'new' ? 'بلاغ جديد بحاجة للمراجعة' : 'تمت المراجعة'}
-                    </span>
-                    <span className="text-xs font-bold text-white">{report.targetTitle}</span>
-                  </div>
-                  <span className="text-xs text-slate-500 font-mono">{report.createdAt}</span>
-                </div>
+            {reports
+              .filter(r => {
+                if (reportFilter === 'new') return r.status === 'new';
+                if (reportFilter === 'accepted') return r.status === 'accepted';
+                if (reportFilter === 'reviewed') return r.status === 'reviewed' || r.status === 'dismissed';
+                return true;
+              })
+              .map((report) => {
+                const linkedJob = jobs.find(j => j.id === report.targetId || j.title.toLowerCase() === report.targetTitle.toLowerCase());
+                const linkedHousing = housing.find(h => h.id === report.targetId || h.title.toLowerCase() === report.targetTitle.toLowerCase());
 
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  {report.details}
+                const getReasonText = (reason: string) => {
+                  switch (reason) {
+                    case 'scam_whatsapp': return 'احتيال عبر واتساب أو أرقام وهمية';
+                    case 'fake_listing': return 'إعلان وهمي / صور مضللة';
+                    case 'asking_fees': return 'طلب رسوم مسبقة غير قانونية';
+                    case 'expired': return 'إعلان منتهي أو غير متاح';
+                    case 'job': return 'بلاغ عن وظيفة مشبوهة';
+                    case 'housing': return 'بلاغ عن سكن مشبوه';
+                    case 'recruitment': return 'بلاغ عن مكتب توظيف غير مرخص';
+                    default: return 'شبهة احتيال أو مخالفة';
+                  }
+                };
+
+                return (
+                  <div 
+                    key={report.id} 
+                    className={`rounded-2xl p-5 sm:p-6 shadow-xl space-y-4 transition-all ${
+                      report.status === 'accepted'
+                        ? 'bg-slate-900/95 border-2 border-emerald-500/50 shadow-emerald-500/5'
+                        : report.status === 'new'
+                          ? 'bg-slate-900 border-2 border-rose-500/40 shadow-rose-500/5'
+                          : 'bg-slate-900 border border-slate-800'
+                    }`}
+                  >
+                    {/* Card Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Status Badge */}
+                        {report.status === 'accepted' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 shadow-sm shadow-emerald-500/10">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>تم قبول دعوى الاحتيال وتأكيدها</span>
+                          </span>
+                        )}
+
+                        {report.status === 'new' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5 animate-pulse">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>بلاغ جديد بانتظار البت</span>
+                          </span>
+                        )}
+
+                        {report.status === 'reviewed' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1.5">
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>تمت المراجعة والتدقيق</span>
+                          </span>
+                        )}
+
+                        {report.status === 'dismissed' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                            مرفوض / غير احتيالي
+                          </span>
+                        )}
+
+                        {/* Reason Pill */}
+                        <span className="px-2.5 py-0.5 rounded-lg bg-amber-400/10 text-amber-300 border border-amber-400/20 text-[11px] font-semibold">
+                          {getReasonText(report.reason || report.targetType)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-slate-500 font-mono">
+                        <span>تاريخ البلاغ: {report.createdAt}</span>
+                        {report.acceptedAt && (
+                          <span className="text-emerald-400">تاريخ القبول: {report.acceptedAt}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Target item title */}
+                    <div>
+                      <h4 className="text-base font-black text-white flex items-center gap-2">
+                        <span>الجهة أو الإعلان المبلّغ عنه:</span>
+                        <span className="text-amber-300 underline decoration-amber-400/30 underline-offset-4">{report.targetTitle}</span>
+                      </h4>
+                    </div>
+
+                    {/* Accepted Alert Banner */}
+                    {report.status === 'accepted' && (
+                      <div className="p-3.5 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start sm:items-center gap-2.5">
+                          <ShieldAlert className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+                          <div>
+                            <p className="font-bold text-emerald-300">
+                              تم قبول دعوى الاحتيال رسمياً وتثبيت صحة البلاغ.
+                            </p>
+                            <p className="text-[11px] text-emerald-400/90 mt-0.5">
+                              أكدت الإدارة أن هذا الإعلان ينطوي على شبهة احتيال أو طلب رسوم غير قانونية. يمكنك الآن محوه من القائمة أدناه بنقرة واحدة.
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`هل تريد محو دعوى الاحتيال "${report.targetTitle}" من القائمة الآن؟`)) {
+                              deleteReport(report.id);
+                              showNotification('تم محو دعوى الاحتيال من القائمة بنجاح.');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shrink-0 flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/20 transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>محو من القائمة الآن</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Complaint Details Box */}
+                    <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800/80 space-y-2">
+                      <span className="text-[11px] font-bold text-slate-400 block">تفاصيل الشكوى المقدمة:</span>
+                      <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-sans select-text">
+                        {report.details}
+                      </p>
+                    </div>
+
+                    {/* Contact Email & Complainant Info */}
+                    {report.contactEmail && (
+                      <div className="flex items-center justify-between gap-3 flex-wrap bg-slate-950/40 px-3.5 py-2.5 rounded-xl border border-slate-800 text-xs">
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Mail className="w-3.5 h-3.5 text-sky-400" />
+                          <span>البريد الإلكتروني لمقدم البلاغ:</span>
+                          <span className="text-sky-300 font-mono select-all font-bold">{report.contactEmail}</span>
+                        </div>
+                        <a
+                          href={`mailto:${report.contactEmail}?subject=${encodeURIComponent(`بخصوص بلاغك في DubaiStart: ${report.targetTitle}`)}&body=${encodeURIComponent(`مرحباً، بخصوص بلاغك الوارد إلينا عن "${report.targetTitle}"، نود إعلامك بأنه تم التحقق واتخاذ الإجراء اللازم.`)}`}
+                          className="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-[11px] font-bold transition-colors"
+                        >
+                          مراسلة المبلّغ بالبريد
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Linked items warning & one-click action */}
+                    {linkedJob && (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-amber-200">
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>تم العثور على الوظيفة المطابقة في المنصة: <strong>{linkedJob.title}</strong> لدى <strong>{linkedJob.company}</strong></span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`هل تريد حذف إعلان الوظيفة المخالف ("${linkedJob.title}") من المنصة فوراً؟`)) {
+                              deleteJob(linkedJob.id);
+                              showNotification('تم حذف إعلان الوظيفة المخالف من المنصة بنجاح!');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shrink-0 flex items-center justify-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>حذف الوظيفة من المنصة</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {linkedHousing && (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-amber-200">
+                        <div className="flex items-center gap-2">
+                          <BedDouble className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>تم العثور على إعلان السكن المطابق في المنصة: <strong>{linkedHousing.title}</strong> ({linkedHousing.price} درهم)</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`هل تريد حذف إعلان السكن المخالف ("${linkedHousing.title}") من المنصة فوراً؟`)) {
+                              deleteHousing(linkedHousing.id);
+                              showNotification('تم حذف إعلان السكن المخالف من المنصة بنجاح!');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shrink-0 flex items-center justify-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>حذف السكن من المنصة</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Card Actions Footer */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                      {/* Primary Actions: Accept & Delete */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* ACCEPT FRAUD CLAIM BUTTON */}
+                        {report.status !== 'accepted' ? (
+                          <button
+                            onClick={() => {
+                              updateReportStatus(report.id, 'accepted');
+                              showNotification(`تم قبول دعوى الاحتيال ("${report.targetTitle}") وتأكيد صحتها بنجاح! يمكنك الآن محوها من القائمة في أي وقت.`);
+                            }}
+                            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>قبول دعوى الاحتيال</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              updateReportStatus(report.id, 'new');
+                              showNotification('تم إعادة فتح البلاغ كقيد المراجعة.');
+                            }}
+                            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                            title="إلغاء القبول وإعادة البلاغ إلى قيد الانتظار"
+                          >
+                            إلغاء القبول
+                          </button>
+                        )}
+
+                        {/* DELETE / REMOVE FROM LIST BUTTON */}
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`هل أنت متأكد من محو دعوى الاحتيال "${report.targetTitle}" من القائمة نهائياً؟`)) {
+                              deleteReport(report.id);
+                              showNotification('تم محو دعوى الاحتيال من القائمة بنجاح.');
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            report.status === 'accepted'
+                              ? 'bg-rose-600 hover:bg-rose-500 text-white font-black shadow-md shadow-rose-600/20'
+                              : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 border border-rose-500/30'
+                          }`}
+                          title="محو من القائمة نهائياً"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>محو من القائمة</span>
+                        </button>
+                      </div>
+
+                      {/* Secondary status helpers */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {report.status !== 'reviewed' && report.status !== 'accepted' && (
+                          <button
+                            onClick={() => {
+                              updateReportStatus(report.id, 'reviewed');
+                              showNotification('تم تحديث حالة البلاغ إلى "تمت المراجعة"');
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 text-xs font-bold border border-sky-500/30 transition-colors cursor-pointer"
+                          >
+                            وضع علامة "تمت المراجعة"
+                          </button>
+                        )}
+
+                        {report.status !== 'dismissed' && report.status !== 'accepted' && (
+                          <button
+                            onClick={() => {
+                              updateReportStatus(report.id, 'dismissed');
+                              showNotification('تم رفض البلاغ وتصنيفه كغير احتيالي.');
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            رفض الدعوى (غير احتيالي)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {reports.filter(r => {
+              if (reportFilter === 'new') return r.status === 'new';
+              if (reportFilter === 'accepted') return r.status === 'accepted';
+              if (reportFilter === 'reviewed') return r.status === 'reviewed' || r.status === 'dismissed';
+              return true;
+            }).length === 0 && (
+              <div className="text-center py-12 px-4 bg-slate-900/60 border border-slate-800 rounded-3xl space-y-3">
+                <ShieldAlert className="w-10 h-10 text-slate-600 mx-auto" />
+                <h4 className="text-sm font-bold text-white">لا توجد بلاغات في هذا التبويب</h4>
+                <p className="text-xs text-slate-400">
+                  {reportFilter === 'accepted' 
+                    ? 'لم تقم بقبول أي دعوى احتيال بعد، أو تم محو جميع الدعاوى المقبولة من القائمة.'
+                    : 'سجل البلاغات خالٍ في هذا القسم.'}
                 </p>
-
-                {report.contactEmail && (
-                  <div className="text-xs text-slate-400">
-                    <span>بريد المبلّغ للتواصل: </span>
-                    <span className="text-sky-400 font-mono">{report.contactEmail}</span>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  {report.status === 'new' ? (
-                    <button
-                      onClick={() => {
-                        updateReportStatus(report.id, 'reviewed');
-                        showNotification('تم تحديث حالة البلاغ إلى "تمت المراجعة"');
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold border border-emerald-500/30 transition-colors"
-                    >
-                      وضع علامة "تمت المراجعة"
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        updateReportStatus(report.id, 'dismissed');
-                        showNotification('تم أرشفة البلاغ');
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold transition-colors"
-                    >
-                      أرشفة
-                    </button>
-                  )}
-                </div>
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}

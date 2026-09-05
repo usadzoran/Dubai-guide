@@ -119,6 +119,7 @@ export interface DayPlan {
 }
 
 export type ReportType = 'job' | 'housing' | 'recruitment' | 'scam_whatsapp' | 'fake_listing' | 'asking_fees' | 'expired' | 'other';
+export type ReportStatus = 'new' | 'reviewed' | 'accepted' | 'dismissed';
 
 export interface UserReport {
   id: string;
@@ -129,7 +130,8 @@ export interface UserReport {
   details: string;
   contactEmail?: string;
   createdAt: string;
-  status: 'new' | 'reviewed' | 'dismissed';
+  status: ReportStatus;
+  acceptedAt?: string;
 }
 
 export type AdPlacement = 'top_banner' | 'home_hero' | 'jobs_feed' | 'housing_feed' | 'floating_badge';

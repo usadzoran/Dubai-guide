@@ -494,9 +494,18 @@ export async function insertReportInSupabase(report: UserReport): Promise<boolea
   }
 }
 
-export async function updateReportStatusInSupabase(id: string, status: 'new' | 'reviewed' | 'dismissed'): Promise<boolean> {
+export async function updateReportStatusInSupabase(id: string, status: 'new' | 'reviewed' | 'accepted' | 'dismissed'): Promise<boolean> {
   try {
     const { error } = await supabase.from('user_reports').update({ status }).eq('id', id);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteReportFromSupabase(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('user_reports').delete().eq('id', id);
     return !error;
   } catch {
     return false;

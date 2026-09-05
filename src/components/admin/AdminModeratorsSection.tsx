@@ -37,6 +37,19 @@ const DEFAULT_PERMISSIONS: ModeratorPermissions = {
   viewAnalytics: false
 };
 
+const PERMISSION_CONFIGS: {
+  key: keyof ModeratorPermissions;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { key: 'manageJobs', label: 'الوظائف', icon: Briefcase },
+  { key: 'manageHousing', label: 'السكن', icon: BedDouble },
+  { key: 'manageOffices', label: 'مكاتب التوظيف', icon: Building2 },
+  { key: 'manageAds', label: 'الإعلانات', icon: Layers },
+  { key: 'manageReports', label: 'بلاغات الاحتيال', icon: Flag },
+  { key: 'viewAnalytics', label: 'الإحصائيات', icon: Activity },
+];
+
 export const AdminModeratorsSection: React.FC = () => {
   const { 
     moderators, 
@@ -177,6 +190,29 @@ export const AdminModeratorsSection: React.FC = () => {
     window.open(url, '_blank');
   };
 
+  const handleTogglePermissionDirectly = (mod: Moderator, key: keyof ModeratorPermissions) => {
+    const updated = {
+      ...mod.permissions,
+      [key]: !mod.permissions[key]
+    };
+    updateModerator(mod.id, { permissions: updated });
+    const label = PERMISSION_CONFIGS.find(p => p.key === key)?.label || key;
+    showToast(`تم ${updated[key] ? 'منح' : 'سحب'} صلاحية "${label}" للمشرف ${mod.name} بنجاح!`);
+  };
+
+  const handleSetAllPermissions = (mod: Moderator, allowAll: boolean) => {
+    const updated: ModeratorPermissions = {
+      manageJobs: allowAll,
+      manageHousing: allowAll,
+      manageOffices: allowAll,
+      manageAds: allowAll,
+      manageReports: allowAll,
+      viewAnalytics: allowAll,
+    };
+    updateModerator(mod.id, { permissions: updated });
+    showToast(`تم ${allowAll ? 'منح كافة الصلاحيات' : 'سحب كافة الصلاحيات'} للمشرف ${mod.name}.`);
+  };
+
   return (
     <div className="space-y-6 text-start">
       {/* Toast */}
@@ -266,43 +302,59 @@ export const AdminModeratorsSection: React.FC = () => {
                   </p>
                 )}
 
-                {/* Permissions Badges */}
-                <div className="pt-2">
-                  <div className="text-[11px] font-bold text-slate-400 mb-1.5 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                    <span>الصلاحيات الممنوحة:</span>
+                {/* Interactive Permissions Control */}
+                <div className="pt-3 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                    <div className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-amber-400" />
+                      <span>التحكم في صلاحيات المشرف (اضغط للتبديل الفوري):</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => handleSetAllPermissions(mod, true)}
+                        className="text-amber-400 hover:text-amber-300 underline underline-offset-2 font-semibold cursor-pointer"
+                      >
+                        منح الكل
+                      </button>
+                      <span className="text-slate-600">|</span>
+                      <button
+                        type="button"
+                        onClick={() => handleSetAllPermissions(mod, false)}
+                        className="text-slate-400 hover:text-rose-400 underline underline-offset-2 font-semibold cursor-pointer"
+                      >
+                        سحب الكل
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {mod.permissions.manageJobs && (
-                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-amber-400/10 text-amber-300 border border-amber-400/20 flex items-center gap-1">
-                        <Briefcase className="w-3 h-3" /> الوظائف
-                      </span>
-                    )}
-                    {mod.permissions.manageHousing && (
-                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-emerald-400/10 text-emerald-300 border border-emerald-400/20 flex items-center gap-1">
-                        <BedDouble className="w-3 h-3" /> السكن
-                      </span>
-                    )}
-                    {mod.permissions.manageOffices && (
-                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-cyan-400/10 text-cyan-300 border border-cyan-400/20 flex items-center gap-1">
-                        <Building2 className="w-3 h-3" /> مكاتب التوظيف
-                      </span>
-                    )}
-                    {mod.permissions.manageAds && (
-                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-purple-400/10 text-purple-300 border border-purple-400/20 flex items-center gap-1">
-                        <Layers className="w-3 h-3" /> الإعلانات
-                      </span>
-                    )}
-                    {mod.permissions.manageReports && (
-                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-rose-400/10 text-rose-300 border border-rose-400/20 flex items-center gap-1">
-                        <Flag className="w-3 h-3" /> بلاغات الاحتيال
-                      </span>
-                    )}
-                    {mod.permissions.viewAnalytics && (
-                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-blue-400/10 text-blue-300 border border-blue-400/20 flex items-center gap-1">
-                        <Activity className="w-3 h-3" /> الإحصائيات
-                      </span>
-                    )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {PERMISSION_CONFIGS.map(({ key, label, icon: Icon }) => {
+                      const isGranted = mod.permissions[key];
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => handleTogglePermissionDirectly(mod, key)}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between gap-1.5 border transition-all cursor-pointer text-start ${
+                            isGranted
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35 hover:bg-emerald-500/25 shadow-sm shadow-emerald-500/10'
+                              : 'bg-slate-950 text-slate-500 border-slate-800 hover:border-slate-700 hover:text-slate-400 opacity-60 hover:opacity-100'
+                          }`}
+                          title={`اضغط لـ ${isGranted ? 'سحب' : 'منح'} صلاحية ${label}`}
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Icon className={`w-3.5 h-3.5 shrink-0 ${isGranted ? 'text-emerald-400' : 'text-slate-500'}`} />
+                            <span className="truncate">{label}</span>
+                          </div>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ${
+                            isGranted ? 'bg-emerald-500/20 text-emerald-300 font-bold' : 'bg-slate-800 text-slate-500'
+                          }`}>
+                            {isGranted ? 'مفعلة' : 'معطلة'}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
