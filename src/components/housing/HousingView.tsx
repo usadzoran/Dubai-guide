@@ -228,13 +228,13 @@ export const HousingView: React.FC = () => {
           <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto mb-4 text-amber-400">
             <BedDouble className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-white mb-2">لا توجد إعلانات سكن معروضة حالياً في قاعدة البيانات</h3>
+          <h3 className="text-xl font-bold text-white mb-2">لا توجد إعلانات سكن معروضة حالياً</h3>
           <p className="text-slate-400 text-sm leading-relaxed mb-6">
-            يتم تحديث هذه القائمة مباشرة من قاعدة بيانات <span className="text-emerald-400 font-mono font-bold">Supabase</span> (جدول public.housing). يمكنك إضافة إعلانات سكن جديدة من لوحة تحكم الإدارة.
+            يتم تحديث خيارات السكن ومشاركات الغرف باستمرار لتوفير أفضل العروض الموثوقة القريبة من المترو والخدمات. تابعنا دورياً للاطلاع على الجديد.
           </p>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-slate-300">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs text-slate-300">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            متصل بقاعدة البيانات الحقيقية
+            التحديث المباشر مفعّل
           </div>
         </div>
       ) : filteredListings.length === 0 ? (

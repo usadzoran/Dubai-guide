@@ -58,8 +58,8 @@ export const MapView: React.FC = () => {
           iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
           shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
         });
-      } catch (iconErr) {
-        console.warn('Leaflet icon config notice:', iconErr);
+      } catch {
+        // Icon fallback handled
       }
 
       if (!mapInstanceRef.current) {
@@ -78,8 +78,7 @@ export const MapView: React.FC = () => {
 
         mapInstanceRef.current = map;
       }
-    } catch (err) {
-      console.error('Failed to initialize Leaflet map:', err);
+    } catch {
       setMapError(true);
     }
 
@@ -90,8 +89,8 @@ export const MapView: React.FC = () => {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
         }
-      } catch (cleanupErr) {
-        console.warn('Leaflet cleanup notice:', cleanupErr);
+      } catch {
+        // Cleanup handled
       }
     };
   }, [retryKey]);
@@ -174,8 +173,8 @@ export const MapView: React.FC = () => {
 
         markersRef.current.push(marker);
       });
-    } catch (err) {
-      console.error('Error updating markers:', err);
+    } catch {
+      // Ignore marker render error
     }
   }, [filteredPlaces, mapError]);
 

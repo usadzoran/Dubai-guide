@@ -54,7 +54,7 @@ export const AdminLoginModal: React.FC = () => {
           closeAdminLoginModal();
           setActiveTab('admin');
         } else {
-          setError('رمز دخول المدير العام غير صحيح! الرمز الافتراضي هو: dubai2026');
+          setError('رمز الدخول غير صحيح. يرجى التأكد والمحاولة مرة أخرى.');
         }
       } else {
         // Moderator mode
@@ -240,9 +240,6 @@ export const AdminLoginModal: React.FC = () => {
               />
               <span>تذكر الجلسة</span>
             </label>
-            {mode === 'super_admin' && (
-              <span className="text-[11px] text-amber-400/80 font-mono">الافتراضي: dubai2026</span>
-            )}
           </div>
 
           {error && (

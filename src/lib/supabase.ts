@@ -774,7 +774,9 @@ export function subscribeToSupabaseRealtime(handlers: RealtimeHandlers): () => v
     } else if (status === 'CLOSED' || status === 'TIMED_OUT') {
       handlers.onStatusChange?.('DISCONNECTED');
     } else if (status === 'CHANNEL_ERROR') {
-      console.warn('Supabase Realtime Channel Error:', err);
+      if (import.meta.env.DEV) {
+        console.warn('Realtime channel notice:', err?.message || status);
+      }
       handlers.onStatusChange?.('ERROR');
     }
   });

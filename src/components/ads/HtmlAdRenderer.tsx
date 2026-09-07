@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AdItem } from '../../types';
 import { useApp } from '../../context/AppContext';
-import { Code, ExternalLink, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface HtmlAdRendererProps {
   ad: AdItem;
@@ -16,7 +16,6 @@ export const HtmlAdRenderer: React.FC<HtmlAdRendererProps> = ({
 }) => {
   const { recordAdClick, recordAdImpression } = useApp();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [adSenseLoaded, setAdSenseLoaded] = useState(false);
 
   // Compute effective HTML code, with fallback if empty
   const rawHtml = ad.htmlCode?.trim();
@@ -35,13 +34,6 @@ export const HtmlAdRenderer: React.FC<HtmlAdRendererProps> = ({
       </a>
     </div>
   </div>`;
-
-  // Detect AdSense
-  const isAdSense = effectiveHtml.includes('adsbygoogle') || effectiveHtml.includes('pagead2.googlesyndication.com');
-  const adClientMatch = effectiveHtml.match(/data-ad-client="([^"]+)"/) || effectiveHtml.match(/client=(ca-pub-[a-zA-Z0-9]+)/);
-  const adSlotMatch = effectiveHtml.match(/data-ad-slot="([^"]+)"/);
-  const adClient = adClientMatch ? adClientMatch[1] : undefined;
-  const adSlot = adSlotMatch ? adSlotMatch[1] : undefined;
 
   // Record impression
   useEffect(() => {
@@ -72,19 +64,6 @@ export const HtmlAdRenderer: React.FC<HtmlAdRendererProps> = ({
       }
     });
 
-    // Check if AdSense iframe is loaded
-    if (isAdSense) {
-      const checkAdSenseIframe = () => {
-        const hasIframe = Boolean(container.querySelector('iframe'));
-        if (hasIframe) {
-          setAdSenseLoaded(true);
-        }
-      };
-      checkAdSenseIframe();
-      const interval = setInterval(checkAdSenseIframe, 1500);
-      return () => clearInterval(interval);
-    }
-
     // Intercept clicks on links or elements to record clicks
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -97,7 +76,7 @@ export const HtmlAdRenderer: React.FC<HtmlAdRendererProps> = ({
     return () => {
       container.removeEventListener('click', handleClick);
     };
-  }, [ad.id, effectiveHtml, isAdSense]);
+  }, [ad.id, effectiveHtml]);
 
   return (
     <div className={`relative group html-ad-container w-full ${className}`}>
@@ -116,31 +95,7 @@ export const HtmlAdRenderer: React.FC<HtmlAdRendererProps> = ({
         className="w-full overflow-hidden text-start rounded-2xl min-h-[50px]"
       />
 
-      {/* AdSense Placeholder/Notice when in Sandbox / awaiting Google verification */}
-      {isAdSense && !adSenseLoaded && (
-        <div className="mt-2 p-3 bg-slate-900/90 border border-amber-500/30 rounded-xl text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-slate-300">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-amber-400/10 text-amber-400 flex items-center justify-center border border-amber-400/20 shrink-0">
-              <Code className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-white">كود Google AdSense نشط</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                  مثبت وجاهز
-                </span>
-              </div>
-              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                {adClient && <span>الناشر: {adClient}</span>}
-                {adSlot && <span className="ms-2">المساحة: {adSlot}</span>}
-              </div>
-            </div>
-          </div>
-          <span className="text-[10px] text-slate-400 bg-slate-800/80 px-2 py-1 rounded-md">
-            تظهر الإعلانات الحية فور مراجعة Google لنطاق موقعك الرسمي
-          </span>
-        </div>
-      )}
+      {/* Rendered HTML content */}
     </div>
   );
 };

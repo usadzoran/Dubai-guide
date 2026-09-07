@@ -297,8 +297,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       document.documentElement.lang = language;
       document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
-    } catch (e) {
-      console.warn(e);
+    } catch {
+      // Ignore in non-browser context
     }
   }, [language]);
 
@@ -354,8 +354,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       setLastRealtimeUpdate(new Date());
       setRealtimeStatus('connected');
-    } catch (err) {
-      console.info('Supabase fetch info:', err);
+    } catch {
       setRealtimeStatus('error');
     }
   };

@@ -24,7 +24,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error caught by ErrorBoundary:', error, errorInfo);
+    if (import.meta.env.DEV) {
+      console.warn('ErrorBoundary captured runtime error');
+    }
   }
 
   private handleReload = () => {
@@ -46,16 +48,13 @@ export class ErrorBoundary extends Component<Props, State> {
       localStorage.clear();
       window.location.hash = '';
       window.location.reload();
-    } catch (e) {
-      console.error(e);
+    } catch {
       window.location.reload();
     }
   };
 
   public render() {
     if (this.state.hasError) {
-      const isDev = Boolean(import.meta.env.DEV);
-
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 font-cairo" dir="rtl">
           <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center space-y-4 shadow-2xl">
@@ -63,17 +62,11 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle className="w-8 h-8" />
             </div>
             
-            <h2 className="text-xl font-bold text-white">حدث خطأ أثناء تحميل Dubai Guide</h2>
+            <h2 className="text-xl font-bold text-white">حدث خطأ مؤقت</h2>
             
             <p className="text-sm text-slate-400 leading-relaxed">
-              نعتذر عن هذا العطل غير المتوقع. يمكنك تحديث الصفحة أو العودة مباشرة إلى الصفحة الرئيسية.
+              نعتذر عن هذا الخلل المؤقت. يمكنك إعادة تحميل الصفحة أو العودة مباشرة إلى الصفحة الرئيسية.
             </p>
-
-            {isDev && this.state.error && (
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800/80 text-xs font-mono text-rose-300 text-left overflow-auto max-h-28">
-                {this.state.error.message}
-              </div>
-            )}
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
               <button
