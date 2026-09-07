@@ -22,9 +22,10 @@ import {
   upsertJobInSupabase,
   upsertHousingInSupabase,
   upsertOfficeInSupabase,
-  upsertAdInSupabase,
-  upsertModeratorInSupabase
+  upsertAdInSupabase
 } from '../../lib/supabase';
+import { INITIAL_JOBS } from '../../data/jobs';
+import { INITIAL_HOUSING } from '../../data/housing';
 import { useApp } from '../../context/AppContext';
 
 export const AdminSupabaseSection: React.FC = () => {
@@ -33,6 +34,7 @@ export const AdminSupabaseSection: React.FC = () => {
     housing, 
     recruitmentOffices, 
     ads, 
+    reports,
     moderators,
     realtimeStatus, 
     lastRealtimeUpdate, 
@@ -79,43 +81,72 @@ export const AdminSupabaseSection: React.FC = () => {
       let housingCount = 0;
       let officeCount = 0;
       let adCount = 0;
-      let modCount = 0;
 
-      setSyncProgress(`مزامنة الوظائف (${jobs.length})...`);
-      for (const j of jobs) {
+      if (jobs.length > 0) {
+        setSyncProgress(`مزامنة الوظائف (${jobs.length})...`);
+        for (const j of jobs) {
+          await upsertJobInSupabase(j);
+          jobCount++;
+        }
+      }
+
+      if (housing.length > 0) {
+        setSyncProgress(`مزامنة عقارات السكن (${housing.length})...`);
+        for (const h of housing) {
+          await upsertHousingInSupabase(h);
+          housingCount++;
+        }
+      }
+
+      if (recruitmentOffices.length > 0) {
+        setSyncProgress(`مزامنة مكاتب التوظيف (${recruitmentOffices.length})...`);
+        for (const o of recruitmentOffices) {
+          await upsertOfficeInSupabase(o);
+          officeCount++;
+        }
+      }
+
+      if (ads.length > 0) {
+        setSyncProgress(`مزامنة الإعلانات (${ads.length})...`);
+        for (const a of ads) {
+          await upsertAdInSupabase(a);
+          adCount++;
+        }
+      }
+
+      setSyncProgress(
+        `اكتملت المزامنة بنجاح! تم التحقق ورفع: ${jobCount} وظيفة، ${housingCount} سكن، ${officeCount} مكتب، ${adCount} إعلان إلى Supabase.`
+      );
+      await refreshFromSupabase();
+    } catch (err: any) {
+      setSyncProgress(`حدث خطأ أثناء المزامنة: ${err?.message || 'تأكد من الاتصال'}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSeedStarterData = async () => {
+    setIsSyncing(true);
+    setSyncProgress('جارٍ رفع وظائف وسكن تجريبية نموذجية إلى جداول Supabase الحقيقية...');
+
+    try {
+      let jobCount = 0;
+      let housingCount = 0;
+
+      for (const j of INITIAL_JOBS) {
         await upsertJobInSupabase(j);
         jobCount++;
       }
 
-      setSyncProgress(`مزامنة عقارات السكن (${housing.length})...`);
-      for (const h of housing) {
+      for (const h of INITIAL_HOUSING) {
         await upsertHousingInSupabase(h);
         housingCount++;
       }
 
-      setSyncProgress(`مزامنة مكاتب التوظيف (${recruitmentOffices.length})...`);
-      for (const o of recruitmentOffices) {
-        await upsertOfficeInSupabase(o);
-        officeCount++;
-      }
-
-      setSyncProgress(`مزامنة الإعلانات (${ads.length})...`);
-      for (const a of ads) {
-        await upsertAdInSupabase(a);
-        adCount++;
-      }
-
-      setSyncProgress(`مزامنة المشرفين (${moderators.length})...`);
-      for (const m of moderators) {
-        await upsertModeratorInSupabase(m);
-        modCount++;
-      }
-
-      setSyncProgress(
-        `اكتملت المزامنة بنجاح! تم رفع: ${jobCount} وظيفة، ${housingCount} سكن، ${officeCount} مكتب، ${adCount} إعلان، ${modCount} مشرف إلى Supabase.`
-      );
+      setSyncProgress(`تم بنجاح رفع ${jobCount} وظيفة و ${housingCount} عقار سكن إلى جداول Supabase! جاري التحديث الفوري...`);
+      await refreshFromSupabase();
     } catch (err: any) {
-      setSyncProgress(`حدث خطأ أثناء المزامنة: ${err?.message || 'تأكد من تشغيل كود SQL أولاً'}`);
+      setSyncProgress(`تعذر رفع البيانات: ${err?.message || 'خطأ في الاتصال'}`);
     } finally {
       setIsSyncing(false);
     }
@@ -231,24 +262,24 @@ export const AdminSupabaseSection: React.FC = () => {
 
             <div className="space-y-2.5 my-4 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 text-xs">
               <div className="flex items-center justify-between text-slate-300">
-                <span>الوظائف الشاغرة:</span>
+                <span>الوظائف الشاغرة (public.jobs):</span>
                 <span className="font-mono font-bold text-amber-400">{jobs.length} وظيفة</span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
-                <span>عقارات السكن:</span>
+                <span>عقارات السكن (public.housing):</span>
                 <span className="font-mono font-bold text-amber-400">{housing.length} عقار</span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
-                <span>مكاتب التوظيف:</span>
+                <span>مكاتب التوظيف (public.recruitment_offices):</span>
                 <span className="font-mono font-bold text-amber-400">{recruitmentOffices.length} مكتب</span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
-                <span>المشرفين والصلاحيات:</span>
-                <span className="font-mono font-bold text-amber-400">{moderators.length} مشرف</span>
+                <span>الإعلانات الترويجية (public.ads):</span>
+                <span className="font-mono font-bold text-amber-400">{ads.length} إعلان</span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
-                <span>الإعلانات الترويجية:</span>
-                <span className="font-mono font-bold text-amber-400">{ads.length} إعلان</span>
+                <span>بلاغات الاحتيال (public.user_reports):</span>
+                <span className="font-mono font-bold text-amber-400">{reports.length} بلاغ</span>
               </div>
             </div>
 
@@ -259,23 +290,34 @@ export const AdminSupabaseSection: React.FC = () => {
             )}
           </div>
 
-          <button
-            onClick={handleSyncAllToSupabase}
-            disabled={isSyncing}
-            className="mt-5 w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-400/10 disabled:opacity-50 cursor-pointer"
-          >
-            {isSyncing ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>جارٍ رفع البيانات...</span>
-              </>
-            ) : (
-              <>
-                <UploadCloud className="w-4 h-4" />
-                <span>رفع ومزامنة الكل إلى Supabase</span>
-              </>
-            )}
-          </button>
+          <div className="mt-5 space-y-2.5">
+            <button
+              onClick={handleSyncAllToSupabase}
+              disabled={isSyncing}
+              className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-400/10 disabled:opacity-50 cursor-pointer"
+            >
+              {isSyncing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>جارٍ معالجة البيانات...</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="w-4 h-4" />
+                  <span>مزامنة البيانات الحالية مع Supabase</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleSeedStarterData}
+              disabled={isSyncing}
+              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span>رفع نماذج دبي ستارت الأولية (وظائف + سكن) إلى Supabase</span>
+            </button>
+          </div>
         </div>
 
         {/* Database Tables Summary */}
@@ -287,7 +329,7 @@ export const AdminSupabaseSection: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">جداول قاعدة البيانات وقنوات Realtime</h3>
-                <p className="text-xs text-slate-400">جميع الجداول مراقبة للتحديث الفوري لحظة بلحظة</p>
+                <p className="text-xs text-slate-400">الجداول الخمسة المؤكدة في schema public مع Realtime نشط</p>
               </div>
             </div>
 
@@ -296,7 +338,6 @@ export const AdminSupabaseSection: React.FC = () => {
                 { name: 'jobs', label: 'الوظائف الشاغرة', icon: Zap },
                 { name: 'housing', label: 'خيارات السكن والمشاركة', icon: Zap },
                 { name: 'recruitment_offices', label: 'مكاتب التوظيف المعتمدة', icon: Zap },
-                { name: 'moderators', label: 'حسابات وصلاحيات المشرفين', icon: Users },
                 { name: 'ads', label: 'الإعلانات والبانرات الترويجية', icon: Zap },
                 { name: 'user_reports', label: 'سجلات بلاغات الاحتيال', icon: ShieldCheck },
               ].map(t => (
@@ -311,7 +352,7 @@ export const AdminSupabaseSection: React.FC = () => {
                       Realtime مفعّل
                     </span>
                     <span className="text-[10px] font-bold text-blue-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20">
-                      RLS
+                      RLS مفعّل
                     </span>
                   </div>
                 </div>

@@ -343,17 +343,17 @@ export async function upsertOfficeInSupabase(o: RecruitmentOffice): Promise<bool
       name: o.name,
       address: o.address,
       area: o.area,
-      phone: o.phone,
-      website: o.website,
-      google_maps_url: o.googleMapsUrl,
-      category: o.category,
-      specializations: o.specializations,
-      rating: o.rating,
-      reviews_count: o.reviewsCount,
-      opening_hours: o.openingHours,
-      verification_label: o.verificationLabel,
-      notes: o.notes,
-      coordinates: o.coordinates
+      phone: o.phone || null,
+      website: o.website || null,
+      google_maps_url: o.googleMapsUrl || null,
+      category: o.category || 'Recruitment Agency',
+      specializations: o.specializations || [],
+      rating: o.rating || 4.5,
+      reviews_count: o.reviewsCount || 0,
+      opening_hours: o.openingHours || null,
+      verification_label: o.verificationLabel || 'معتمد رسمي',
+      notes: o.notes || null,
+      coordinates: o.coordinates || [25.2048, 55.2708]
     });
     return !error;
   } catch {
@@ -390,23 +390,33 @@ export async function fetchAdsFromSupabase(): Promise<AdItem[] | null> {
 
 export async function upsertAdInSupabase(ad: AdItem): Promise<boolean> {
   try {
-    const { error } = await supabase.from('ads').upsert({
+    const fullPayload: Record<string, any> = {
       id: ad.id,
       title: ad.title,
       description: ad.description || '',
       placement: ad.placement,
       image_url: ad.imageUrl || null,
-      cta_text: ad.ctaText || '',
+      cta_text: ad.ctaText || 'تفاصيل الإعلان',
       cta_link: ad.ctaLink || '',
       badge: ad.badge || null,
-      active: ad.active,
-      clicks: ad.clicks,
-      impressions: ad.impressions,
+      active: ad.active === undefined ? true : ad.active,
+      clicks: ad.clicks || 0,
+      impressions: ad.impressions || 0,
       bg_style: ad.bgStyle || 'dark',
       ad_type: ad.adType || 'standard',
       html_code: ad.htmlCode || null,
-      created_at: ad.createdAt
-    });
+      created_at: ad.createdAt || new Date().toISOString()
+    };
+
+    const { error } = await supabase.from('ads').upsert(fullPayload);
+
+    // If schema cache does not have ad_type / html_code yet, fallback to core columns
+    if (error && (error.code === 'PGRST204' || error.message?.includes('ad_type') || error.message?.includes('html_code'))) {
+      const { ad_type, html_code, ...corePayload } = fullPayload;
+      const fallbackResult = await supabase.from('ads').upsert(corePayload);
+      return !fallbackResult.error;
+    }
+
     return !error;
   } catch {
     return false;
@@ -659,21 +669,6 @@ export function subscribeToSupabaseRealtime(handlers: RealtimeHandlers): () => v
     }
   );
 
-  // 6. Moderators Realtime Listener
-  channel.on(
-    'postgres_changes',
-    { event: '*', schema: 'public', table: 'moderators' },
-    (payload) => {
-      if (payload.eventType === 'INSERT' && payload.new) {
-        handlers.onModeratorInsert?.(mapModeratorRow(payload.new));
-      } else if (payload.eventType === 'UPDATE' && payload.new) {
-        handlers.onModeratorUpdate?.(mapModeratorRow(payload.new));
-      } else if (payload.eventType === 'DELETE' && payload.old?.id) {
-        handlers.onModeratorDelete?.(payload.old.id);
-      }
-    }
-  );
-
   channel.subscribe((status, err) => {
     if (status === 'SUBSCRIBED') {
       handlers.onStatusChange?.('CONNECTED');
@@ -808,49 +803,88 @@ CREATE TABLE IF NOT EXISTS public.moderators (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 7. تفعيل REPLICA IDENTITY FULL لضمان إرسال بيانات السجلات في أحداث الحذف والتحديث
+-- 6. إضافة الأعمدة الإضافية لجدول الإعلانات (ads) إذا لم تكن موجودة
+ALTER TABLE public.ads ADD COLUMN IF NOT EXISTS ad_type TEXT DEFAULT 'standard';
+ALTER TABLE public.ads ADD COLUMN IF NOT EXISTS html_code TEXT;
+
+-- 7. تفعيل REPLICA IDENTITY FULL للجداول الخمسة الموجودة فعلياً
 ALTER TABLE public.jobs REPLICA IDENTITY FULL;
 ALTER TABLE public.housing REPLICA IDENTITY FULL;
 ALTER TABLE public.recruitment_offices REPLICA IDENTITY FULL;
 ALTER TABLE public.ads REPLICA IDENTITY FULL;
 ALTER TABLE public.user_reports REPLICA IDENTITY FULL;
-ALTER TABLE public.moderators REPLICA IDENTITY FULL;
 
--- 8. تفعيل الحماية RLS وسياسات الوصول العامة
+-- 8. تفعيل الحماية RLS وسياسات الوصول العامة للجداول الـ 5
 ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.housing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recruitment_offices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_reports ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.moderators ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow public read access on jobs" ON public.jobs FOR SELECT USING (true);
-CREATE POLICY "Allow public write access on jobs" ON public.jobs FOR ALL USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'jobs' AND policyname = 'Allow public read access on jobs') THEN
+    CREATE POLICY "Allow public read access on jobs" ON public.jobs FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'jobs' AND policyname = 'Allow public write access on jobs') THEN
+    CREATE POLICY "Allow public write access on jobs" ON public.jobs FOR ALL USING (true);
+  END IF;
 
-CREATE POLICY "Allow public read access on housing" ON public.housing FOR SELECT USING (true);
-CREATE POLICY "Allow public write access on housing" ON public.housing FOR ALL USING (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'housing' AND policyname = 'Allow public read access on housing') THEN
+    CREATE POLICY "Allow public read access on housing" ON public.housing FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'housing' AND policyname = 'Allow public write access on housing') THEN
+    CREATE POLICY "Allow public write access on housing" ON public.housing FOR ALL USING (true);
+  END IF;
 
-CREATE POLICY "Allow public read access on recruitment_offices" ON public.recruitment_offices FOR SELECT USING (true);
-CREATE POLICY "Allow public write access on recruitment_offices" ON public.recruitment_offices FOR ALL USING (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'recruitment_offices' AND policyname = 'Allow public read access on recruitment_offices') THEN
+    CREATE POLICY "Allow public read access on recruitment_offices" ON public.recruitment_offices FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'recruitment_offices' AND policyname = 'Allow public write access on recruitment_offices') THEN
+    CREATE POLICY "Allow public write access on recruitment_offices" ON public.recruitment_offices FOR ALL USING (true);
+  END IF;
 
-CREATE POLICY "Allow public read access on ads" ON public.ads FOR SELECT USING (true);
-CREATE POLICY "Allow public write access on ads" ON public.ads FOR ALL USING (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'ads' AND policyname = 'Allow public read access on ads') THEN
+    CREATE POLICY "Allow public read access on ads" ON public.ads FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'ads' AND policyname = 'Allow public write access on ads') THEN
+    CREATE POLICY "Allow public write access on ads" ON public.ads FOR ALL USING (true);
+  END IF;
 
-CREATE POLICY "Allow public read access on user_reports" ON public.user_reports FOR SELECT USING (true);
-CREATE POLICY "Allow public write access on user_reports" ON public.user_reports FOR ALL USING (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_reports' AND policyname = 'Allow public read access on user_reports') THEN
+    CREATE POLICY "Allow public read access on user_reports" ON public.user_reports FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_reports' AND policyname = 'Allow public write access on user_reports') THEN
+    CREATE POLICY "Allow public write access on user_reports" ON public.user_reports FOR ALL USING (true);
+  END IF;
+END $$;
 
-CREATE POLICY "Allow public read access on moderators" ON public.moderators FOR SELECT USING (true);
-CREATE POLICY "Allow public write access on moderators" ON public.moderators FOR ALL USING (true);
-
--- 9. تفعيل خاصية التزامن اللحظي (Supabase Realtime Publication)
--- هذا الأمر يسمح لجميع التعديلات والإضافات بالوصول فوراً عبر WebSockets لكافة المتصفحين والمديرين
+-- 9. تفعيل خاصية التزامن اللحظي (Supabase Realtime Publication) للجداول الـ 5 فقط
 DO $$
 BEGIN
   BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.jobs, public.housing, public.recruitment_offices, public.ads, public.user_reports, public.moderators;
-  EXCEPTION
-    WHEN duplicate_object THEN NULL;
-    WHEN others THEN NULL;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.jobs;
+  EXCEPTION WHEN duplicate_object THEN NULL; WHEN others THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.housing;
+  EXCEPTION WHEN duplicate_object THEN NULL; WHEN others THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.recruitment_offices;
+  EXCEPTION WHEN duplicate_object THEN NULL; WHEN others THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.ads;
+  EXCEPTION WHEN duplicate_object THEN NULL; WHEN others THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.user_reports;
+  EXCEPTION WHEN duplicate_object THEN NULL; WHEN others THEN NULL;
   END;
 END $$;
 `;

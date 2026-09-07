@@ -223,7 +223,21 @@ export const HousingView: React.FC = () => {
       </div>
 
       {/* Listings Grid */}
-      {filteredListings.length === 0 ? (
+      {housing.length === 0 ? (
+        <div className="text-center py-16 bg-slate-900/50 rounded-2xl border border-slate-800 p-8 max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto mb-4 text-amber-400">
+            <BedDouble className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">لا توجد إعلانات سكن معروضة حالياً في قاعدة البيانات</h3>
+          <p className="text-slate-400 text-sm leading-relaxed mb-6">
+            يتم تحديث هذه القائمة مباشرة من قاعدة بيانات <span className="text-emerald-400 font-mono font-bold">Supabase</span> (جدول public.housing). يمكنك إضافة إعلانات سكن جديدة من لوحة تحكم الإدارة.
+          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            متصل بقاعدة البيانات الحقيقية
+          </div>
+        </div>
+      ) : filteredListings.length === 0 ? (
         <div className="text-center py-16 bg-slate-900/50 rounded-2xl border border-slate-800 p-8">
           <BedDouble className="w-12 h-12 text-slate-600 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-white mb-1">لا توجد خيارات سكن مطابقة للفلاتر</h3>
@@ -234,7 +248,7 @@ export const HousingView: React.FC = () => {
             onClick={resetFilters}
             className="px-4 py-2 rounded-xl bg-amber-400 text-slate-950 font-bold text-xs"
           >
-            إعادة تعيين الفلاتر
+            إعادة تعيين الفلاتر ({housing.length} عقار متاح)
           </button>
         </div>
       ) : (

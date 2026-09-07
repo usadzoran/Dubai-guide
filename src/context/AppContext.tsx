@@ -185,47 +185,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   
   const [jobs, setJobs] = useState<Job[]>(() => {
     const saved = safeGetItem('dubai_start_jobs');
-    return safeParseJSON(saved, INITIAL_JOBS);
+    return safeParseJSON(saved, []);
   });
 
   const [housing, setHousing] = useState<HousingListing[]>(() => {
     const saved = safeGetItem('dubai_start_housing');
-    return safeParseJSON(saved, INITIAL_HOUSING);
+    return safeParseJSON(saved, []);
   });
 
   const [recruitmentOffices, setRecruitmentOffices] = useState<RecruitmentOffice[]>(() => {
     const saved = safeGetItem('dubai_start_offices');
-    return safeParseJSON(saved, INITIAL_RECRUITMENT_OFFICES);
+    return safeParseJSON(saved, []);
   });
 
   const [reports, setReports] = useState<UserReport[]>(() => {
-    const defaultReports: UserReport[] = [
-      {
-        id: 'rep-1',
-        targetType: 'scam_whatsapp',
-        targetId: 'item-1',
-        targetTitle: 'طلب 500 درهم لتأشيرة عمل عبر رقم أجنبي',
-        reason: 'scam_whatsapp',
-        details: 'تواصل معي شخص يزعم أنه مسؤول توظيف في شركة طيران وطلب تحويل 500 درهم رسوم زي موحد وتصريح.',
-        contactEmail: 'applicant@example.com',
-        createdAt: '2026-03-01',
-        status: 'new'
-      },
-      {
-        id: 'rep-2',
-        targetType: 'housing',
-        targetId: 'item-2',
-        targetTitle: 'إعلان سكن وهمي يطلب عربون عبر تحويل رصيد',
-        reason: 'fake_listing',
-        details: 'طلب صاحب الإعلان إرسال عربون 300 درهم قبل المعاينة بحجة حجز السرير، وعند الحضور إلى الموقع تبيّن أن العقار غير متاح.',
-        contactEmail: 'user_dubai@gmail.com',
-        createdAt: '2026-03-03',
-        status: 'accepted',
-        acceptedAt: '2026-03-04'
-      }
-    ];
     const saved = safeGetItem('dubai_start_reports');
-    return safeParseJSON(saved, defaultReports);
+    return safeParseJSON(saved, []);
   });
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -333,19 +308,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshFromSupabase = async () => {
     try {
       setRealtimeStatus('connecting');
-      const [remoteJobs, remoteHousing, remoteOffices, remoteAds, remoteReports, remoteMods] = await Promise.all([
+      const [remoteJobs, remoteHousing, remoteOffices, remoteAds, remoteReports] = await Promise.all([
         fetchJobsFromSupabase(),
         fetchHousingFromSupabase(),
         fetchOfficesFromSupabase(),
         fetchAdsFromSupabase(),
-        fetchReportsFromSupabase(),
-        fetchModeratorsFromSupabase()
+        fetchReportsFromSupabase()
       ]);
 
-      if (remoteJobs && remoteJobs.length > 0) setJobs(remoteJobs);
-      if (remoteHousing && remoteHousing.length > 0) setHousing(remoteHousing);
-      if (remoteOffices && remoteOffices.length > 0) setRecruitmentOffices(remoteOffices);
-      if (remoteAds && remoteAds.length > 0) {
+      if (remoteJobs !== null) setJobs(remoteJobs);
+      if (remoteHousing !== null) setHousing(remoteHousing);
+      if (remoteOffices !== null) setRecruitmentOffices(remoteOffices);
+      if (remoteAds !== null) {
         setAds(prev => {
           return remoteAds.map(rAd => {
             const localMatch = prev.find(p => p.id === rAd.id);
@@ -360,8 +334,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         });
       }
-      if (remoteReports && remoteReports.length > 0) setReports(remoteReports);
-      if (remoteMods && remoteMods.length > 0) setModerators(remoteMods);
+      if (remoteReports !== null) setReports(remoteReports);
       
       setLastRealtimeUpdate(new Date());
       setRealtimeStatus('connected');
@@ -465,21 +438,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       onReportDelete: (deletedId) => {
         if (!isMounted) return;
         setReports(prev => prev.filter(r => r.id !== deletedId));
-        setLastRealtimeUpdate(new Date());
-      },
-      onModeratorInsert: (newMod) => {
-        if (!isMounted) return;
-        setModerators(prev => prev.some(m => m.id === newMod.id) ? prev.map(m => m.id === newMod.id ? newMod : m) : [newMod, ...prev]);
-        setLastRealtimeUpdate(new Date());
-      },
-      onModeratorUpdate: (updatedMod) => {
-        if (!isMounted) return;
-        setModerators(prev => prev.map(m => m.id === updatedMod.id ? updatedMod : m));
-        setLastRealtimeUpdate(new Date());
-      },
-      onModeratorDelete: (deletedId) => {
-        if (!isMounted) return;
-        setModerators(prev => prev.filter(m => m.id !== deletedId));
         setLastRealtimeUpdate(new Date());
       }
     });

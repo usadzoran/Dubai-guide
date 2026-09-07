@@ -267,18 +267,32 @@ export const JobsView: React.FC = () => {
       </div>
 
       {/* Jobs Grid */}
-      {filteredJobs.length === 0 ? (
+      {jobs.length === 0 ? (
+        <div className="text-center py-16 bg-slate-900/50 rounded-2xl border border-slate-800 p-8 max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto mb-4 text-amber-400">
+            <Briefcase className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">لا توجد وظائف معروضة حالياً في قاعدة البيانات</h3>
+          <p className="text-slate-400 text-sm leading-relaxed mb-6">
+            يتم تحديث هذه القائمة مباشرة من قاعدة بيانات <span className="text-emerald-400 font-mono font-bold">Supabase</span> (جدول public.jobs). يمكنك إضافة وظائف جديدة من لوحة تحكم الإدارة لتظهر لجميع الزوار فوراً.
+          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            متصل بقاعدة البيانات الحقيقية
+          </div>
+        </div>
+      ) : filteredJobs.length === 0 ? (
         <div className="text-center py-16 bg-slate-900/50 rounded-2xl border border-slate-800 p-8">
           <Briefcase className="w-12 h-12 text-slate-600 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-white mb-1">لا توجد وظائف مطابقة للبحث</h3>
           <p className="text-slate-400 text-xs sm:text-sm max-w-md mx-auto mb-4">
-            جرب تغيير الكلمات المفتاحية أو اختيار منطقة أخرى أو إعادة ضبط الفلاتر
+            جرب تغيير الكلمات المفتاحية أو اختيار تخصص آخر أو إعادة ضبط الفلاتر
           </p>
           <button
             onClick={resetFilters}
             className="px-4 py-2 rounded-xl bg-amber-400 text-slate-950 font-bold text-xs"
           >
-            إظهار كافة الوظائف
+            إظهار كافة الوظائف ({jobs.length})
           </button>
         </div>
       ) : (
