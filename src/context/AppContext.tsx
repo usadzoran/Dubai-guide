@@ -40,7 +40,9 @@ import {
   deleteReportFromSupabase,
   upsertModeratorInSupabase,
   deleteModeratorFromSupabase,
-  subscribeToSupabaseRealtime
+  subscribeToSupabaseRealtime,
+  getCachedAdHtml,
+  setCachedAdHtml
 } from '../lib/supabase';
 
 export type NavTab = 
@@ -222,7 +224,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const local = safeParseJSON<AdItem[]>(saved, INITIAL_ADS);
     return local.map(ad => {
       const initialMatch = INITIAL_ADS.find(init => init.id === ad.id);
-      const effectiveHtml = ad.htmlCode || initialMatch?.htmlCode;
+      const cachedHtml = getCachedAdHtml(ad.id);
+      const effectiveHtml = ad.htmlCode || cachedHtml || initialMatch?.htmlCode;
       const isHtml = ad.adType === 'html' || Boolean(effectiveHtml?.trim()) || initialMatch?.adType === 'html';
       return {
         ...ad,
@@ -321,10 +324,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (remoteOffices !== null) setRecruitmentOffices(remoteOffices);
       if (remoteAds !== null) {
         setAds(prev => {
-          return remoteAds.map(rAd => {
+          // 1. Process remote ads with cache and initial fallback
+          const processedRemote = remoteAds.map(rAd => {
             const localMatch = prev.find(p => p.id === rAd.id);
             const initialMatch = INITIAL_ADS.find(init => init.id === rAd.id);
-            const effectiveHtml = rAd.htmlCode || localMatch?.htmlCode || initialMatch?.htmlCode;
+            const cachedHtml = getCachedAdHtml(rAd.id);
+            const effectiveHtml = rAd.htmlCode || cachedHtml || localMatch?.htmlCode || initialMatch?.htmlCode;
             const isHtml = rAd.adType === 'html' || Boolean(effectiveHtml?.trim()) || localMatch?.adType === 'html';
             return {
               ...rAd,
@@ -332,6 +337,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               htmlCode: effectiveHtml || undefined
             };
           });
+
+          // 2. Identify placements covered by remote ads
+          const coveredPlacements = new Set(processedRemote.map(a => a.placement));
+
+          // 3. Keep existing or initial ads for any placement not covered by remote ads
+          // (e.g. jobs_feed, housing_feed, floating_badge) so they never vanish from the site!
+          const nonCoveredInitial = INITIAL_ADS.filter(
+            init => !coveredPlacements.has(init.placement) && !processedRemote.some(r => r.id === init.id)
+          );
+
+          return [...processedRemote, ...nonCoveredInitial];
         });
       }
       if (remoteReports !== null) setReports(remoteReports);
@@ -412,12 +428,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       onAdInsert: (newAd) => {
         if (!isMounted) return;
-        setAds(prev => prev.some(a => a.id === newAd.id) ? prev.map(a => a.id === newAd.id ? newAd : a) : [newAd, ...prev]);
+        const cachedHtml = getCachedAdHtml(newAd.id);
+        const effectiveHtml = newAd.htmlCode || cachedHtml;
+        const isHtml = newAd.adType === 'html' || Boolean(effectiveHtml?.trim());
+        const fullAd: AdItem = {
+          ...newAd,
+          adType: isHtml ? 'html' : (newAd.adType || 'standard'),
+          htmlCode: effectiveHtml || undefined
+        };
+        setAds(prev => prev.some(a => a.id === fullAd.id) ? prev.map(a => a.id === fullAd.id ? fullAd : a) : [fullAd, ...prev]);
         setLastRealtimeUpdate(new Date());
       },
       onAdUpdate: (updatedAd) => {
         if (!isMounted) return;
-        setAds(prev => prev.map(a => a.id === updatedAd.id ? updatedAd : a));
+        const cachedHtml = getCachedAdHtml(updatedAd.id);
+        const effectiveHtml = updatedAd.htmlCode || cachedHtml;
+        const isHtml = updatedAd.adType === 'html' || Boolean(effectiveHtml?.trim());
+        const fullAd: AdItem = {
+          ...updatedAd,
+          adType: isHtml ? 'html' : (updatedAd.adType || 'standard'),
+          htmlCode: effectiveHtml || undefined
+        };
+        setAds(prev => prev.map(a => a.id === fullAd.id ? fullAd : a));
         setLastRealtimeUpdate(new Date());
       },
       onAdDelete: (deletedId) => {
@@ -716,11 +748,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Ads CRUD and tracking
   const addAd = (adData: Omit<AdItem, 'id' | 'clicks' | 'impressions' | 'createdAt'>) => {
     const isHtml = adData.adType === 'html' || Boolean(adData.htmlCode?.trim());
+    const finalHtml = adData.htmlCode?.trim();
+    const newId = 'ad-' + Date.now();
+    if (finalHtml) {
+      setCachedAdHtml(newId, finalHtml);
+    }
     const newAd: AdItem = {
       ...adData,
       adType: isHtml ? 'html' : (adData.adType || 'standard'),
-      htmlCode: adData.htmlCode?.trim() || undefined,
-      id: 'ad-' + Date.now(),
+      htmlCode: finalHtml || undefined,
+      id: newId,
       clicks: 0,
       impressions: 0,
       createdAt: new Date().toISOString().split('T')[0]
@@ -735,10 +772,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (a.id === id) {
           const merged = { ...a, ...updates };
           const isHtml = merged.adType === 'html' || Boolean(merged.htmlCode?.trim());
+          const finalHtml = merged.htmlCode?.trim();
+          if (finalHtml) {
+            setCachedAdHtml(id, finalHtml);
+          }
           return {
             ...merged,
             adType: isHtml ? 'html' : (merged.adType || 'standard'),
-            htmlCode: merged.htmlCode?.trim() || undefined
+            htmlCode: finalHtml || undefined
           };
         }
         return a;

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { AdItem, AdPlacement } from '../../types';
+import { getCachedAdHtml } from '../../lib/supabase';
 import { 
   Plus, 
   Trash2, 
@@ -172,9 +173,11 @@ export const AdminAdsSection: React.FC = () => {
 
   const openEditModal = (ad: AdItem) => {
     setEditingAd(ad);
-    const isHtml = ad.adType === 'html' || Boolean(ad.htmlCode);
+    const cachedCode = getCachedAdHtml(ad.id);
+    const effectiveCode = ad.htmlCode || cachedCode || '';
+    const isHtml = ad.adType === 'html' || Boolean(effectiveCode);
     setAdType(isHtml ? 'html' : 'standard');
-    setHtmlCode(ad.htmlCode || '');
+    setHtmlCode(effectiveCode);
     setTitle(ad.title);
     setDescription(ad.description || '');
     setPlacement(ad.placement);
@@ -193,7 +196,10 @@ export const AdminAdsSection: React.FC = () => {
     if (!title.trim() && !isHtml) return;
 
     const finalTitle = title.trim() || (isHtml ? 'إعلان كود HTML مخصص' : 'إعلان جديد');
-    const finalHtmlCode = isHtml ? htmlCode.trim() : undefined;
+    let finalHtmlCode = isHtml ? htmlCode.trim() : undefined;
+    if (isHtml && !finalHtmlCode) {
+      finalHtmlCode = HTML_TEMPLATES[0].code;
+    }
 
     const adPayload = {
       title: finalTitle,

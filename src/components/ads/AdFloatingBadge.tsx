@@ -22,13 +22,13 @@ export const AdFloatingBadge: React.FC = () => {
   if (activeTab === 'admin' || !floatingAd || dismissed) return null;
 
   // Custom HTML Ad
-  if (isHtml && floatingAd.htmlCode) {
+  if (isHtml) {
     return (
       <div className="fixed bottom-20 sm:bottom-6 start-4 z-40 max-w-[280px] sm:max-w-xs animate-in fade-in slide-in-from-bottom-3 duration-300">
         <div className="relative">
           <button
             onClick={() => setDismissed(true)}
-            className="absolute -top-2 -end-2 w-6 h-6 rounded-full bg-slate-900 border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs shadow z-20"
+            className="absolute -top-2 -end-2 w-6 h-6 rounded-full bg-slate-900 border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs shadow z-20 cursor-pointer"
             title="إغلاق"
             aria-label="إغلاق"
           >

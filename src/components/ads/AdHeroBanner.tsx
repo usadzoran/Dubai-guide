@@ -25,7 +25,7 @@ export const AdHeroBanner: React.FC = () => {
         const isHtml = heroAd.adType === 'html' || Boolean(heroAd.htmlCode?.trim());
 
         // Custom HTML Ad
-        if (isHtml && heroAd.htmlCode) {
+        if (isHtml) {
           return (
             <div key={heroAd.id} className="w-full">
               <HtmlAdRenderer ad={heroAd} className="shadow-xl" />

@@ -27,7 +27,7 @@ export const AdFeedCard: React.FC<AdFeedCardProps> = ({ placement, adIndex = 0 }
   }, [ad.id, isHtml]);
 
   // Custom HTML Ad
-  if (isHtml && ad.htmlCode) {
+  if (isHtml) {
     return (
       <div className="col-span-full my-2 w-full">
         <HtmlAdRenderer ad={ad} className="shadow-lg" />

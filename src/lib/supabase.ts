@@ -78,12 +78,97 @@ export function mapOfficeRow(row: any): RecruitmentOffice {
   };
 }
 
+// Storage key for client-side HTML ads cache
+const ADS_HTML_CACHE_KEY = 'dubai_start_ads_html_cache';
+
+export function getCachedAdHtml(id: string): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const raw = localStorage.getItem(ADS_HTML_CACHE_KEY);
+    if (!raw) return undefined;
+    const cache = JSON.parse(raw);
+    return cache[id] || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function setCachedAdHtml(id: string, htmlCode: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(ADS_HTML_CACHE_KEY);
+    const cache = raw ? JSON.parse(raw) : {};
+    cache[id] = htmlCode;
+    localStorage.setItem(ADS_HTML_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function mapAdRow(row: any): AdItem {
-  const isHtml = row.ad_type === 'html' || Boolean(row.html_code);
+  let htmlCode: string | undefined = row.html_code || undefined;
+  let rawDesc: string = row.description || '';
+  let isHtml = row.ad_type === 'html' || Boolean(htmlCode);
+  let cleanDesc = rawDesc;
+
+  // 1. Detect HTML code embedded in description with <!--HTML_AD--> marker
+  if (rawDesc.startsWith('<!--HTML_AD-->')) {
+    htmlCode = rawDesc.substring('<!--HTML_AD-->'.length).trim();
+    isHtml = true;
+    cleanDesc = 'إعلان مخصص بكود HTML';
+  } else if (!htmlCode && (
+    rawDesc.includes('<div') || 
+    rawDesc.includes('<script') || 
+    rawDesc.includes('<iframe') || 
+    rawDesc.includes('<ins ') || 
+    rawDesc.includes('<a ')
+  )) {
+    // Description itself is raw HTML code
+    htmlCode = rawDesc.trim();
+    isHtml = true;
+    cleanDesc = 'إعلان مخصص بكود HTML';
+  }
+
+  // 2. Check client-side HTML cache by ID if still undefined
+  if (!htmlCode && row.id) {
+    const cached = getCachedAdHtml(row.id);
+    if (cached) {
+      htmlCode = cached;
+      isHtml = true;
+    }
+  }
+
+  // 3. If ad is explicitly HTML or titled as HTML ad but htmlCode is empty, synthesize a functional HTML banner
+  if (isHtml && !htmlCode) {
+    const fallbackTitle = row.title || 'إعلان ترويجي مميز';
+    const fallbackCta = row.cta_text || 'تواصل عبر واتساب';
+    const fallbackLink = row.cta_link || 'https://wa.me/971501234567';
+    htmlCode = `<div style="background: linear-gradient(135deg, #090d16 0%, #1e293b 100%); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 16px; padding: 16px; color: #fff; direction: rtl; text-align: right; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.3); width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px;">⭐</div>
+          <div>
+            <div style="font-size: 11px; color: #fbbf24; font-weight: 800;">${row.badge || 'إعلان معتمد'}</div>
+            <h4 style="margin: 2px 0; font-size: 15px; font-weight: 800; color: #fff;">${fallbackTitle}</h4>
+            <p style="margin: 0; font-size: 12px; color: #cbd5e1;">${cleanDesc !== 'إعلان مخصص بكود HTML' ? cleanDesc : 'تواصل مع المعلن مباشرة للحصول على التفاصيل والعروض الخاصة.'}</p>
+          </div>
+        </div>
+        <a href="${fallbackLink}" target="_blank" rel="noopener noreferrer" style="background: #fbbf24; color: #020617; padding: 8px 16px; border-radius: 10px; text-decoration: none; font-size: 12px; font-weight: 900; display: inline-flex; align-items: center; gap: 6px;">
+          <span>${fallbackCta}</span> 💬
+        </a>
+      </div>
+    </div>`;
+  }
+
+  // Update client cache if we have code
+  if (htmlCode && row.id) {
+    setCachedAdHtml(row.id, htmlCode);
+  }
+
   return {
     id: row.id,
     title: row.title || (isHtml ? 'إعلان كود HTML' : 'إعلان بدون عنوان'),
-    description: row.description || '',
+    description: cleanDesc,
     placement: row.placement,
     imageUrl: row.image_url,
     ctaText: row.cta_text || 'تفاصيل الإعلان',
@@ -94,7 +179,7 @@ export function mapAdRow(row: any): AdItem {
     impressions: Number(row.impressions || 0),
     bgStyle: row.bg_style || 'dark',
     adType: isHtml ? 'html' : (row.ad_type || 'standard'),
-    htmlCode: row.html_code || undefined,
+    htmlCode: htmlCode,
     createdAt: row.created_at || new Date().toISOString()
   };
 }
@@ -390,27 +475,41 @@ export async function fetchAdsFromSupabase(): Promise<AdItem[] | null> {
 
 export async function upsertAdInSupabase(ad: AdItem): Promise<boolean> {
   try {
+    const isHtml = ad.adType === 'html' || Boolean(ad.htmlCode?.trim());
+    const finalHtml = ad.htmlCode?.trim();
+
+    // Cache locally
+    if (finalHtml && ad.id) {
+      setCachedAdHtml(ad.id, finalHtml);
+    }
+
+    // Embed HTML in description using <!--HTML_AD--> prefix so it persists in Supabase TEXT column
+    const encodedDescription = (isHtml && finalHtml)
+      ? `<!--HTML_AD-->${finalHtml}`
+      : (ad.description || '');
+
     const fullPayload: Record<string, any> = {
       id: ad.id,
-      title: ad.title,
-      description: ad.description || '',
+      title: ad.title || (isHtml ? 'إعلان كود HTML مخصص' : 'إعلان ترويجي'),
+      description: encodedDescription,
       placement: ad.placement,
       image_url: ad.imageUrl || null,
       cta_text: ad.ctaText || 'تفاصيل الإعلان',
-      cta_link: ad.ctaLink || '',
+      cta_link: ad.ctaLink || '#',
       badge: ad.badge || null,
       active: ad.active === undefined ? true : ad.active,
       clicks: ad.clicks || 0,
       impressions: ad.impressions || 0,
-      bg_style: ad.bgStyle || 'dark',
-      ad_type: ad.adType || 'standard',
-      html_code: ad.htmlCode || null,
+      bg_style: ad.bgStyle || 'gold',
+      ad_type: isHtml ? 'html' : (ad.adType || 'standard'),
+      html_code: finalHtml || null,
       created_at: ad.createdAt || new Date().toISOString()
     };
 
     const { error } = await supabase.from('ads').upsert(fullPayload);
 
     // If schema cache does not have ad_type / html_code yet, fallback to core columns
+    // The HTML code is still safely persisted inside encodedDescription!
     if (error && (error.code === 'PGRST204' || error.message?.includes('ad_type') || error.message?.includes('html_code'))) {
       const { ad_type, html_code, ...corePayload } = fullPayload;
       const fallbackResult = await supabase.from('ads').upsert(corePayload);
